@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tradingagent.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/venv/bin/python3</string>
+        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/main.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/predatorroxy.macpro/Documents/TradingAgent</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>25</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/predatorroxy.macpro/Documents/TradingAgent/logs/launchd_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/predatorroxy.macpro/Documents/TradingAgent/logs/launchd_stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/venv/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>TZ</key>
+        <string>Asia/Kolkata</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
