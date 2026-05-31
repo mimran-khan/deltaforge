@@ -8,4 +8,4 @@ python-dotenv>=1.0.0
 apscheduler>=3.10.0
 pytz>=2024.1
 loguru>=0.7.0
-logzero>=1.7.0
+yfinance>=0.2.0

@@ -77,7 +77,15 @@ def watchdog_loop(check_interval: int = 30):
                 send_kill_alert(reason)
                 logger.critical(reason)
 
-            if tracker.current_capital < 3000:
+            # Drawdown check
+            dd = tracker.drawdown_pct
+            if dd >= settings.DRAWDOWN_HALT_PCT:
+                reason = f"Drawdown {dd:.1f}% >= halt threshold {settings.DRAWDOWN_HALT_PCT}%"
+                set_halt(reason)
+                send_kill_alert(reason)
+                logger.critical(reason)
+
+            if tracker.current_capital < settings.MIN_CAPITAL_TO_TRADE:
                 reason = f"Capital critically low: Rs {tracker.current_capital:.0f}"
                 set_halt(reason)
                 send_kill_alert(reason)

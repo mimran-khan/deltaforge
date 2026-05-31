@@ -1,18 +1,19 @@
-"""Track capital, P&L, and compute lot sizing based on equity tiers."""
+"""Persistent equity tracker with compound lot sizing.
+
+Saves ALL state to disk so kill-switch watchdog can read it.
+Implements drawdown tiers for progressive risk reduction.
+"""
 
 from __future__ import annotations
 import json
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from loguru import logger
-
 from config import settings
 
 
 class CapitalTracker:
-    """Persistent equity tracker with compound lot sizing."""
-
     def __init__(self):
         self.starting_capital: float = settings.STARTING_CAPITAL
         self.current_capital: float = settings.STARTING_CAPITAL
@@ -38,16 +39,25 @@ class CapitalTracker:
                 self.total_pnl = data.get("total_pnl", 0)
                 self.peak_capital = data.get("peak_capital", self.current_capital)
                 self.weekly_pnl = data.get("weekly_pnl", 0)
-                logger.info("Loaded capital: Rs {:.0f}", self.current_capital)
+                self.max_drawdown = data.get("max_drawdown", 0)
+                self.daily_pnl = data.get("daily_pnl", 0)
+                self.trades_today = data.get("trades_today", 0)
+                self.consecutive_losses = data.get("consecutive_losses", 0)
+                logger.info("Loaded capital: Rs {:.0f} (peak: Rs {:.0f})",
+                           self.current_capital, self.peak_capital)
             except Exception as e:
                 logger.error("Capital load error: {}", e)
 
     def save(self):
         data = {
-            "current_capital": self.current_capital,
-            "total_pnl": self.total_pnl,
-            "peak_capital": self.peak_capital,
-            "weekly_pnl": self.weekly_pnl,
+            "current_capital": round(self.current_capital, 2),
+            "total_pnl": round(self.total_pnl, 2),
+            "peak_capital": round(self.peak_capital, 2),
+            "weekly_pnl": round(self.weekly_pnl, 2),
+            "max_drawdown": round(self.max_drawdown, 2),
+            "daily_pnl": round(self.daily_pnl, 2),
+            "trades_today": self.trades_today,
+            "consecutive_losses": self.consecutive_losses,
             "last_updated": datetime.now().isoformat(),
         }
         try:
@@ -62,9 +72,9 @@ class CapitalTracker:
         self.trades_today = 0
         self.wins_today = 0
         self.losses_today = 0
-        self.consecutive_losses = 0
         self._trade_log = []
-        logger.info("Day started with capital: Rs {:.0f}", self.current_capital)
+        self.save()
+        logger.info("Day started: Rs {:.0f}", self.current_capital)
 
     def record_trade(self, pnl: float, strategy: str, symbol: str,
                      entry_price: float, exit_price: float,
@@ -85,32 +95,56 @@ class CapitalTracker:
         if self.current_capital > self.peak_capital:
             self.peak_capital = self.current_capital
 
-        dd = (self.peak_capital - self.current_capital) / self.peak_capital * 100
+        dd = (self.peak_capital - self.current_capital) / self.peak_capital * 100 \
+            if self.peak_capital > 0 else 0
         if dd > self.max_drawdown:
             self.max_drawdown = dd
 
-        trade_record = {
+        self._trade_log.append({
             "timestamp": datetime.now().isoformat(),
-            "strategy": strategy,
-            "symbol": symbol,
-            "entry": entry_price,
-            "exit": exit_price,
-            "quantity": quantity,
-            "pnl": pnl,
-            "reason": reason,
-            "capital_after": self.current_capital,
-        }
-        self._trade_log.append(trade_record)
+            "strategy": strategy, "symbol": symbol,
+            "entry": entry_price, "exit": exit_price,
+            "quantity": quantity, "pnl": round(pnl, 2),
+            "reason": reason, "capital_after": round(self.current_capital, 2),
+        })
         self.save()
+        logger.info("Trade: {} {} PnL=Rs {:.0f} Cap=Rs {:.0f}",
+                     strategy, "W" if pnl >= 0 else "L", pnl, self.current_capital)
 
-        logger.info("Trade recorded: {} {} PnL=Rs {:.0f} Capital=Rs {:.0f}",
-                     strategy, "WIN" if pnl >= 0 else "LOSS", pnl, self.current_capital)
+    @property
+    def drawdown_pct(self) -> float:
+        if self.peak_capital <= 0:
+            return 0
+        return (self.peak_capital - self.current_capital) / self.peak_capital * 100
 
-    def get_max_lots(self, underlying: str = "NIFTY") -> int:
-        """Determine lot count based on current capital tier."""
+    def get_sizing_multiplier(self) -> float:
+        """Drawdown-based position sizing. Returns 0.0-1.0."""
+        dd = self.drawdown_pct
+        if dd >= settings.DRAWDOWN_HALT_PCT:
+            return 0.0
+        if dd >= settings.DRAWDOWN_HALFSIZE_PCT:
+            return 0.5
+        return 1.0
+
+    def get_max_lots(self, underlying: str = "NIFTY",
+                     premium_per_unit: float = 100.0) -> int:
+        sizing_mult = self.get_sizing_multiplier()
+        if sizing_mult <= 0:
+            return 0
+
+        if getattr(settings, "COMPOUND_DAILY", False):
+            deployable = self.current_capital * (settings.CAPITAL_DEPLOY_PCT / 100)
+            deployable *= sizing_mult
+            lot_size = (settings.NIFTY_LOT_SIZE if underlying == "NIFTY"
+                        else settings.BANKNIFTY_LOT_SIZE)
+            cost_per_lot = premium_per_unit * lot_size
+            if cost_per_lot <= 0:
+                return 1
+            return max(1, int(deployable / cost_per_lot))
+
         for min_cap, max_lots, inst in reversed(settings.LOT_TIERS):
             if self.current_capital >= min_cap and inst == underlying:
-                return max_lots
+                return max(1, int(max_lots * sizing_mult))
         return 1
 
     def get_daily_loss_limit(self) -> float:
@@ -126,8 +160,7 @@ class CapitalTracker:
         return (self.daily_pnl / self.day_start_capital) * 100
 
     def get_summary(self) -> dict:
-        win_rate = (self.wins_today / self.trades_today * 100
-                    if self.trades_today > 0 else 0)
+        wr = self.wins_today / self.trades_today * 100 if self.trades_today > 0 else 0
         return {
             "capital": self.current_capital,
             "daily_pnl": self.daily_pnl,
@@ -135,10 +168,12 @@ class CapitalTracker:
             "trades": self.trades_today,
             "wins": self.wins_today,
             "losses": self.losses_today,
-            "win_rate": win_rate,
+            "win_rate": wr,
             "total_pnl": self.total_pnl,
             "max_drawdown": self.max_drawdown,
+            "drawdown_current": self.drawdown_pct,
             "consecutive_losses": self.consecutive_losses,
+            "peak_capital": self.peak_capital,
             "trade_log": self._trade_log,
         }
 

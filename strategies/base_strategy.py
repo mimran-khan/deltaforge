@@ -20,10 +20,11 @@ class Signal:
     signal_type: SignalType
     strategy_name: str
     entry_price: float          # index price at signal
-    stop_loss_index: float      # SL in index points
-    target_index: float         # target in index points
     option_type: str            # "CE" or "PE"
+    stop_loss_index: float = 0  # SL in index points (0 = use premium SL)
+    target_index: float = 0     # target in index points (0 = use premium target)
     confidence: float = 1.0     # 0-1 scale
+    confluence_score: float = 0 # raw confluence score
     reason: str = ""
     timestamp: Optional[pd.Timestamp] = None
 
