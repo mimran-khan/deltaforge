@@ -46,17 +46,11 @@ NIFTY_EXPIRY_DAY = 1       # Tuesday = 1 (Monday=0, Sunday=6)
 # ═══════════════════════════════════════════════════════════════════
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
 
-LOT_TIERS = [
-    # (min_capital, max_lots, instrument)
-    (10_000,  1, "NIFTY"),
-    (25_000,  2, "NIFTY"),
-    (50_000,  3, "NIFTY"),
-    (100_000, 5, "NIFTY"),
-]
+CAPITAL_PER_LOT = 10_000        # add 1 lot for every Rs 10,000 of capital
+MAX_LOTS_CAP = 10               # safety cap: never exceed 10 lots
 
-CAPITAL_DEPLOY_PCT = 60.0       # deploy 60% per trade (down from 80%)
+CAPITAL_DEPLOY_PCT = 60.0
 COMPOUND_DAILY = True
-MAX_LOTS = 1                    # fixed 1 lot until capital > Rs 25,000
 
 # ═══════════════════════════════════════════════════════════════════
 #  RISK MANAGEMENT (3-layer: pre-trade, real-time, post-trade)

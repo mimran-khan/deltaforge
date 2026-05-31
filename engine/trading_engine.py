@@ -247,10 +247,18 @@ class TradingEngine:
         else:
             self._live_enter(signal, decision, option_type)
 
+    def _compute_lots(self) -> int:
+        """Compute lot count from current capital -- this is how we compound."""
+        capital = self.capital.current_capital
+        per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
+        cap = getattr(settings, 'MAX_LOTS_CAP', 10)
+        lots = max(1, int(capital / per_lot))
+        return min(lots, cap)
+
     def _paper_enter(self, signal: PullbackSignal,
                      decision: RiskDecision, option_type: str):
         """Full paper trade simulation with realistic costs."""
-        lots = min(decision.lots, getattr(settings, "MAX_LOTS", 1))
+        lots = self._compute_lots()
         qty = lots * settings.NIFTY_LOT_SIZE
 
         prem_state = create_premium_state(

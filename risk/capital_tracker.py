@@ -128,24 +128,20 @@ class CapitalTracker:
 
     def get_max_lots(self, underlying: str = "NIFTY",
                      premium_per_unit: float = 100.0) -> int:
+        """Compute lots from capital -- this is how compounding works.
+
+        1 lot per CAPITAL_PER_LOT of current capital, capped at MAX_LOTS_CAP.
+        Drawdown multiplier can reduce this to 0 (halt).
+        """
         sizing_mult = self.get_sizing_multiplier()
         if sizing_mult <= 0:
             return 0
 
-        if getattr(settings, "COMPOUND_DAILY", False):
-            deployable = self.current_capital * (settings.CAPITAL_DEPLOY_PCT / 100)
-            deployable *= sizing_mult
-            lot_size = (settings.NIFTY_LOT_SIZE if underlying == "NIFTY"
-                        else settings.BANKNIFTY_LOT_SIZE)
-            cost_per_lot = premium_per_unit * lot_size
-            if cost_per_lot <= 0:
-                return 1
-            return max(1, int(deployable / cost_per_lot))
-
-        for min_cap, max_lots, inst in reversed(settings.LOT_TIERS):
-            if self.current_capital >= min_cap and inst == underlying:
-                return max(1, int(max_lots * sizing_mult))
-        return 1
+        per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
+        cap = getattr(settings, 'MAX_LOTS_CAP', 10)
+        lots = max(1, int(self.current_capital / per_lot))
+        lots = int(lots * sizing_mult)
+        return max(1, min(lots, cap))
 
     def get_daily_loss_limit(self) -> float:
         return self.day_start_capital * (settings.DAILY_LOSS_LIMIT_PCT / 100)
