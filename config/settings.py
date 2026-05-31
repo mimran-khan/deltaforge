@@ -63,7 +63,7 @@ MAX_LOTS = 1                    # fixed 1 lot until capital > Rs 25,000
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Pre-trade gates --
-MAX_TRADES_PER_DAY = int(os.getenv("MAX_TRADES_PER_DAY", "1"))
+MAX_TRADES_PER_DAY = int(os.getenv("MAX_TRADES_PER_DAY", "3"))
 MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "2"))
 MIN_CAPITAL_TO_TRADE = 3000     # halt if capital drops below this
 
@@ -83,11 +83,16 @@ VIX_SPIKE_HALT_PCT = 15.0       # halt if VIX jumps > 15% intraday
 SKIP_EXPIRY_DAY = True           # no trading on expiry day (Tuesday)
 
 # ═══════════════════════════════════════════════════════════════════
-#  CONFLUENCE ENGINE
+#  PULLBACK ENGINE (replaces confluence engine as primary alpha)
 # ═══════════════════════════════════════════════════════════════════
+PULLBACK_MIN_CONFIDENCE = 50     # minimum signal confidence to trade
+PULLBACK_HOLD_CANDLES = 24       # max hold = 2 hours (24 × 5min)
+PULLBACK_MAX_SIGNALS_PER_DAY = 3
+
+# Legacy confluence (kept for monitoring/logging)
 CONFLUENCE_THRESHOLD = float(os.getenv("CONFLUENCE_THRESHOLD", "55"))
 MIN_STRENGTH = os.getenv("MIN_STRENGTH", "STRONG")
-CONFLUENCE_HOLD_CANDLES = 12     # 60 minutes (where edge was proven)
+CONFLUENCE_HOLD_CANDLES = 12     # 60 minutes
 
 CONFLUENCE_CATEGORY_WEIGHTS = {
     "trend": 1.0,
@@ -108,24 +113,24 @@ CONFLUENCE_CATEGORY_WEIGHTS = {
 #  PREMIUM / OPTIONS MODEL
 # ═══════════════════════════════════════════════════════════════════
 
-# OTM option model (validated for Rs 10,000 capital)
-PREMIUM_BASE = 25.0             # OTM Nifty option premium
-PREMIUM_DELTA = 0.20            # OTM delta
-PREMIUM_THETA_PER_CANDLE = 0.04 # theta decay per 5-min candle
-PREMIUM_SL_PCT = 30.0           # stop loss as % of premium
-PREMIUM_TARGET_PCT = 40.0       # target gain as % of premium
-PREMIUM_TARGET_POINTS = 10      # target gain Rs per unit (OTM)
+# ATM option model (higher delta = better premium tracking)
+PREMIUM_BASE = 100.0            # ATM Nifty option premium (~Rs 100)
+PREMIUM_DELTA = 0.45            # ATM delta
+PREMIUM_THETA_PER_CANDLE = 0.30 # ATM theta per 5-min candle
+PREMIUM_SL_PCT = 50.0           # wide SL (validated: let trades breathe)
+PREMIUM_TARGET_PCT = 0.0        # no TP (let winners run to time exit)
+PREMIUM_TARGET_POINTS = 0       # time exit only
 
 # Strike selection
 STRIKE_MIN_DTE = 3              # minimum days to expiry
 STRIKE_MAX_DTE = 5              # maximum days to expiry
-STRIKE_OFFSET = 1               # 1-OTM strike (cheaper premium)
+STRIKE_OFFSET = 0               # ATM strike (offset=0)
 
 # Execution costs (per lot, realistic for NFO)
 BROKERAGE_PER_ORDER = 20.0      # Rs 20 flat per order
 STT_PCT = 0.0625                # STT on premium (buy side)
 STAMP_DUTY_PCT = 0.003          # stamp duty
-SLIPPAGE_POINTS = 1.0           # Rs 1.0 per unit slippage assumption
+SLIPPAGE_POINTS = 1.5           # Rs 1.5 per unit slippage assumption
 
 # ═══════════════════════════════════════════════════════════════════
 #  TIMING (IST)
@@ -133,8 +138,8 @@ SLIPPAGE_POINTS = 1.0           # Rs 1.0 per unit slippage assumption
 MARKET_OPEN = "09:15"
 MARKET_CLOSE = "15:30"
 ENTRY_START = "09:45"           # no entry before 9:45 (let ORB settle)
-ENTRY_END = "13:00"             # no new entry after 13:00
-NO_NEW_ENTRY_AFTER = "13:00"    # alias for backward compat
+ENTRY_END = "13:30"             # no new entry after 13:30
+NO_NEW_ENTRY_AFTER = "13:30"    # alias for backward compat
 SQUARE_OFF_TIME = "15:15"       # hard exit
 SESSION_LOGIN_TIME = "08:30"
 INSTRUMENT_DOWNLOAD_TIME = "08:45"
