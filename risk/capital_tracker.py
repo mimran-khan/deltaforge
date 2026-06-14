@@ -5,12 +5,19 @@ Implements drawdown tiers for progressive risk reduction.
 """
 
 from __future__ import annotations
+import fcntl
 import json
+import os
+import shutil
 from datetime import datetime
 from typing import Optional
 
+import pytz
 from loguru import logger
+
 from config import settings
+
+IST = pytz.timezone("Asia/Kolkata")
 
 
 class CapitalTracker:
@@ -28,6 +35,9 @@ class CapitalTracker:
         self.peak_capital: float = settings.STARTING_CAPITAL
         self.max_drawdown: float = 0.0
         self._trade_log: list = []
+        self._last_start_date: str = ""
+        self._last_weekly_reset: str = ""
+        self.week_start_capital: float = settings.STARTING_CAPITAL
         self._load()
 
     def _load(self):
@@ -43,12 +53,25 @@ class CapitalTracker:
                 self.daily_pnl = data.get("daily_pnl", 0)
                 self.trades_today = data.get("trades_today", 0)
                 self.consecutive_losses = data.get("consecutive_losses", 0)
+                self.day_start_capital = data.get("day_start_capital", self.current_capital)
+                self.wins_today = data.get("wins_today", 0)
+                self.losses_today = data.get("losses_today", 0)
+                self._last_start_date = data.get("last_start_date", "")
+                self._last_weekly_reset = data.get("last_weekly_reset", "")
+                self.week_start_capital = data.get("week_start_capital", self.current_capital)
                 logger.info("Loaded capital: Rs {:.0f} (peak: Rs {:.0f})",
                            self.current_capital, self.peak_capital)
             except Exception as e:
                 logger.error("Capital load error: {}", e)
 
     def save(self):
+        if self.trades_today != self.wins_today + self.losses_today:
+            logger.critical(
+                "Counter invariant broken: trades_today={} != wins={} + losses={}",
+                self.trades_today, self.wins_today, self.losses_today,
+            )
+            self.trades_today = self.wins_today + self.losses_today
+
         data = {
             "current_capital": round(self.current_capital, 2),
             "total_pnl": round(self.total_pnl, 2),
@@ -58,20 +81,56 @@ class CapitalTracker:
             "daily_pnl": round(self.daily_pnl, 2),
             "trades_today": self.trades_today,
             "consecutive_losses": self.consecutive_losses,
-            "last_updated": datetime.now().isoformat(),
+            "day_start_capital": round(self.day_start_capital, 2),
+            "wins_today": self.wins_today,
+            "losses_today": self.losses_today,
+            "last_updated": datetime.now(IST).isoformat(),
+            "last_start_date": getattr(self, '_last_start_date', ''),
+            "last_weekly_reset": getattr(self, '_last_weekly_reset', ''),
+            "week_start_capital": round(getattr(self, 'week_start_capital', self.current_capital), 2),
         }
         try:
-            with open(settings.CAPITAL_FILE, "w") as f:
-                json.dump(data, f, indent=2)
+            tmp = settings.CAPITAL_FILE.with_suffix('.tmp')
+            lock_path = settings.CAPITAL_FILE.with_suffix('.lock')
+            with open(lock_path, 'w') as lf:
+                fcntl.flock(lf, fcntl.LOCK_EX)
+                try:
+                    with open(tmp, "w") as f:
+                        json.dump(data, f, indent=2)
+                    os.replace(str(tmp), str(settings.CAPITAL_FILE))
+                finally:
+                    fcntl.flock(lf, fcntl.LOCK_UN)
         except Exception as e:
             logger.error("Capital save error: {}", e)
 
     def start_day(self):
+        today = datetime.now(IST).date().isoformat()
+
+        if getattr(self, '_last_start_date', '') == today:
+            logger.info("Day already started ({}), skipping reset. Cap=Rs {:.0f}", today, self.current_capital)
+            return
+
+        # Backup capital file before resetting daily state
+        if settings.CAPITAL_FILE.exists():
+            bak = settings.CAPITAL_FILE.with_suffix('.bak')
+            try:
+                shutil.copy2(str(settings.CAPITAL_FILE), str(bak))
+            except Exception as e:
+                logger.warning("Capital backup failed: {}", e)
+
+        # Auto-reset weekly PnL on Monday (once per week)
+        if datetime.now(IST).weekday() == 0:
+            if getattr(self, '_last_weekly_reset', '') != today:
+                self.reset_weekly()
+                self._last_weekly_reset = today
+
+        self._last_start_date = today
         self.day_start_capital = self.current_capital
         self.daily_pnl = 0.0
         self.trades_today = 0
         self.wins_today = 0
         self.losses_today = 0
+        self.consecutive_losses = 0
         self._trade_log = []
         self.save()
         logger.info("Day started: Rs {:.0f}", self.current_capital)
@@ -101,7 +160,7 @@ class CapitalTracker:
             self.max_drawdown = dd
 
         self._trade_log.append({
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(IST).isoformat(),
             "strategy": strategy, "symbol": symbol,
             "entry": entry_price, "exit": exit_price,
             "quantity": quantity, "pnl": round(pnl, 2),
@@ -137,9 +196,10 @@ class CapitalTracker:
         if sizing_mult <= 0:
             return 0
 
+        deployable = self.current_capital * (settings.CAPITAL_DEPLOY_PCT / 100)
         per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
         cap = getattr(settings, 'MAX_LOTS_CAP', 10)
-        lots = max(1, int(self.current_capital / per_lot))
+        lots = max(1, int(deployable / per_lot))
         lots = int(lots * sizing_mult)
         return max(1, min(lots, cap))
 
@@ -147,7 +207,8 @@ class CapitalTracker:
         return self.day_start_capital * (settings.DAILY_LOSS_LIMIT_PCT / 100)
 
     def get_weekly_loss_limit(self) -> float:
-        return self.starting_capital * (settings.WEEKLY_LOSS_LIMIT_PCT / 100)
+        base = getattr(self, 'week_start_capital', self.current_capital)
+        return base * (settings.WEEKLY_LOSS_LIMIT_PCT / 100)
 
     @property
     def daily_pnl_pct(self) -> float:
@@ -175,4 +236,5 @@ class CapitalTracker:
 
     def reset_weekly(self):
         self.weekly_pnl = 0.0
+        self.week_start_capital = self.current_capital
         self.save()

@@ -6,8 +6,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import pytz
 import yfinance as yf
 from loguru import logger
+
+IST = pytz.timezone("Asia/Kolkata")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -37,7 +40,7 @@ def download_nifty_intraday(interval: str = "5m", period: str = "60d") -> pd.Dat
 def download_nifty_daily(years: int = 2) -> pd.DataFrame:
     """Download Nifty 50 daily data for longer-term analysis."""
     logger.info("Downloading Nifty 50 daily data ({} years)...", years)
-    end = datetime.now()
+    end = datetime.now(IST)
     start = end - timedelta(days=years * 365)
     ticker = yf.Ticker("^NSEI")
     df = ticker.history(start=start, end=end, interval="1d")

@@ -5,9 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+import pytz
 from loguru import logger
 
 from config import settings
+
+IST = pytz.timezone("Asia/Kolkata")
 from engine.broker import BrokerConnection
 from risk.capital_tracker import CapitalTracker
 
@@ -91,7 +94,7 @@ class PositionManager:
             direction="BUY",
             quantity=quantity,
             entry_price=premium_price,
-            entry_time=datetime.now(),
+            entry_time=datetime.now(IST),
             stop_loss=sl_price,
             target=target_price,
             index_entry=signal.entry_price,
@@ -180,7 +183,7 @@ class PositionManager:
         )
 
         pos.exit_price = exit_price
-        pos.exit_time = datetime.now()
+        pos.exit_time = datetime.now(IST)
         pos.status = reason
         pos.pnl = (exit_price - pos.entry_price) * pos.quantity
 
@@ -204,17 +207,3 @@ class PositionManager:
             price = current_ltp if current_ltp else pos.entry_price * 0.8
             self._close_position(pos, price, reason)
         logger.info("All positions squared off: {}", reason)
-
-    def time_based_exit(self):
-        """Check if we should exit based on time."""
-        now = datetime.now()
-        cutoff_parts = settings.NO_NEW_ENTRY_AFTER.split(":")
-        cutoff_hour, cutoff_min = int(cutoff_parts[0]), int(cutoff_parts[1])
-
-        sqoff_parts = settings.SQUARE_OFF_TIME.split(":")
-        sqoff_hour, sqoff_min = int(sqoff_parts[0]), int(sqoff_parts[1])
-
-        if now.hour > sqoff_hour or (now.hour == sqoff_hour and now.minute >= sqoff_min):
-            if self.has_open_positions:
-                logger.info("Square-off time reached -- closing all positions")
-                self.square_off_all("TIMED_OUT")

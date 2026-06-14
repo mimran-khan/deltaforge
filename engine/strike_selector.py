@@ -6,9 +6,27 @@ import math
 from datetime import datetime, date, timedelta
 from typing import Optional, Tuple
 
+import pytz
 from loguru import logger
 
 from config import settings
+
+IST = pytz.timezone("Asia/Kolkata")
+
+_EXPIRY_FORMATS = ("%d%b%Y", "%d-%b-%Y", "%Y-%m-%d", "%d/%m/%Y")
+
+
+def _parse_expiry(exp_str: str):
+    """Parse expiry string to date for reliable sorting."""
+    if not exp_str:
+        return None
+    cleaned = exp_str.strip().upper()
+    for fmt in _EXPIRY_FORMATS:
+        try:
+            return datetime.strptime(cleaned, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 class StrikeSelector:
@@ -52,7 +70,7 @@ class StrikeSelector:
                     i.get("symbol") == "Nifty 50"):
                 return i
         for i in self.instruments:
-            if i.get("token") == "99926000" and i.get("exch_seg") == "NSE":
+            if i.get("token") == settings.NIFTY_INDEX_TOKEN and i.get("exch_seg") == "NSE":
                 return i
         return None
 
@@ -64,7 +82,7 @@ class StrikeSelector:
                     i.get("symbol") == "Nifty Bank"):
                 return i
         for i in self.instruments:
-            if i.get("token") == "99926009" and i.get("exch_seg") == "NSE":
+            if i.get("token") == settings.BANKNIFTY_INDEX_TOKEN and i.get("exch_seg") == "NSE":
                 return i
         return None
 
@@ -115,13 +133,15 @@ class StrikeSelector:
             if dated:
                 candidates = dated
 
-        candidates.sort(key=lambda x: x.get("expiry", ""))
+        candidates.sort(
+            key=lambda x: _parse_expiry(x.get("expiry", "")) or datetime.max.date()
+        )
         return candidates[0]
 
     def get_nearest_expiry(self, underlying: str = "NIFTY") -> Optional[str]:
         """Get nearest expiry date string for weekly/monthly options."""
         options = self._nifty_options if underlying == "NIFTY" else self._banknifty_options
-        today = datetime.now().date()
+        today = datetime.now(IST).date()
 
         expiries = set()
         for o in options:

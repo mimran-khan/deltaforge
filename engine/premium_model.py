@@ -68,6 +68,45 @@ class PremiumState:
         return None
 
 
+STRATEGY_TARGET_MULT = {
+    "SUPERTREND":    {70: 1.35, 50: 1.25, 0: 1.20},
+    "STOCH_CROSS":   {70: 1.35, 50: 1.25, 0: 1.20},
+    "PULLBACK":      {70: 1.30, 50: 1.20, 0: 1.15},
+    "RSI_REVERSION": {70: 1.25, 50: 1.20, 0: 1.15},
+    "VWAP_MOMENTUM": {70: 1.30, 50: 1.25, 0: 1.20},
+    "EMA_MOMENTUM":  {70: 1.50, 50: 1.40, 0: 1.30},
+    "VWAP_MEAN_REV": {70: 1.25, 50: 1.20, 0: 1.15},
+    "CPR_RANGE":     {70: 1.22, 50: 1.18, 0: 1.15},
+    "GAP_TRADE":     {70: 1.35, 50: 1.25, 0: 1.20},
+    "CPR_BREAKOUT":  {70: 1.35, 50: 1.25, 0: 1.20},
+    "ADX_BREAKOUT":  {70: 1.35, 50: 1.25, 0: 1.20},
+    "TREND_RIDE":    {70: 1.45, 50: 1.35, 0: 1.25},
+    "ORB_BREAKOUT":  {70: 1.50, 50: 1.35, 0: 1.25},
+    "BB_SQUEEZE":    {70: 1.45, 50: 1.35, 0: 1.25},
+    "VWAP_BOUNCE":   {70: 1.40, 50: 1.30, 0: 1.20},
+    "RSI_DIVERGENCE": {70: 1.35, 50: 1.25, 0: 1.15},
+}
+
+STRATEGY_SL_PCT = {
+    "SUPERTREND":    10.0,
+    "STOCH_CROSS":   10.0,
+    "PULLBACK":      10.0,
+    "RSI_REVERSION": 10.0,
+    "VWAP_MOMENTUM": 10.0,
+    "EMA_MOMENTUM":  10.0,
+    "VWAP_MEAN_REV": 10.0,
+    "CPR_RANGE":     10.0,
+    "GAP_TRADE":     10.0,
+    "CPR_BREAKOUT":  10.0,
+    "ADX_BREAKOUT":  10.0,
+    "TREND_RIDE":    15.0,
+    "ORB_BREAKOUT":  10.0,
+    "BB_SQUEEZE":    10.0,
+    "VWAP_BOUNCE":   8.0,
+    "RSI_DIVERGENCE": 8.0,
+}
+
+
 def create_premium_state(
     entry_index_price: float,
     direction: str,
@@ -76,26 +115,29 @@ def create_premium_state(
     theta_per_candle: float = 0.15,
     sl_pct: float = 35.0,
     confluence_score: float = 50.0,
+    signal_type: str = "",
 ) -> PremiumState:
     """Create a premium state for a new trade, deterministically.
 
-    Premium is based on confluence score strength:
-    - Higher confluence = slightly higher entry premium (more ATM strike)
-    - This is deterministic, no random noise.
+    Uses strategy-specific target multipliers: SUPERTREND (80% WR) gets
+    wider targets, PULLBACK gets tighter targets for faster exits.
     """
     abs_conf = abs(confluence_score)
-    premium_adj = (abs_conf - 40) / 100 * 8  # +0 to +4.8 based on confluence
+    premium_adj = (abs_conf - 40) / 100 * 8
     entry_premium = base_premium + max(0, premium_adj)
 
-    # Dynamic target based on confluence strength
+    tiers = STRATEGY_TARGET_MULT.get(
+        signal_type, {70: 1.45, 50: 1.35, 0: 1.25})
     if abs_conf >= 70:
-        target_prem = entry_premium * 1.35
+        mult = tiers[70]
     elif abs_conf >= 50:
-        target_prem = entry_premium * 1.25
+        mult = tiers[50]
     else:
-        target_prem = entry_premium * 1.18
+        mult = tiers[0]
+    target_prem = entry_premium * mult
 
-    sl_prem = entry_premium * (1 - sl_pct / 100)
+    effective_sl = STRATEGY_SL_PCT.get(signal_type, sl_pct)
+    sl_prem = entry_premium * (1 - effective_sl / 100)
 
     return PremiumState(
         entry_premium=round(entry_premium, 2),

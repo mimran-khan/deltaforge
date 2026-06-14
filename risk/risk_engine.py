@@ -11,12 +11,14 @@ If Telegram fails, risk still halts. If broker fails, risk still halts.
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 import pytz
 from loguru import logger
 
 from config import settings
 from risk.capital_tracker import CapitalTracker
+from risk.kill_switch import set_halt as _set_halt_flag, clear_halt as _clear_halt_flag
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -39,6 +41,36 @@ class RiskEngine:
         self.capital = capital_tracker
         self._halted = False
         self._halt_reason = ""
+        self._vix_cache: Optional[float] = None
+        self._vix_fetched_at: Optional[datetime] = None
+
+    def _fetch_vix(self) -> Optional[float]:
+        """Fetch India VIX with 5-minute cache. Returns None if unavailable."""
+        now = datetime.now(IST)
+        if (self._vix_fetched_at and self._vix_cache is not None
+                and (now - self._vix_fetched_at).total_seconds() < 300):
+            return self._vix_cache
+
+        vix_value = None
+        try:
+            import urllib.request
+            import json as _json
+            req = urllib.request.Request(
+                "https://www.nseindia.com/api/allIndices",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = _json.loads(resp.read().decode())
+            for item in data.get("data", []):
+                if "VIX" in item.get("index", "").upper():
+                    vix_value = float(item.get("last", 0))
+                    break
+        except Exception as e:
+            logger.warning("VIX fetch unavailable: {}", e)
+
+        self._vix_fetched_at = now
+        self._vix_cache = vix_value
+        return vix_value
 
     @property
     def is_halted(self) -> bool:
@@ -51,20 +83,23 @@ class RiskEngine:
     def halt(self, reason: str):
         self._halted = True
         self._halt_reason = reason
+        _set_halt_flag(reason)
         logger.warning("RISK HALT: {}", reason)
 
     def resume(self):
         self._halted = False
         self._halt_reason = ""
+        _clear_halt_flag()
 
     def evaluate(self, confluence_score: float = 0,
                  direction: str = "NEUTRAL",
                  strength: str = "NONE",
-                 signal_obj=None) -> RiskDecision:
+                 signal_obj=None,
+                 lot_multiplier: float = 1.0,
+                 min_confidence_override: int | None = None) -> RiskDecision:
         """Evaluate a trade against all pre-trade risk rules.
 
-        Accepts either raw confluence data or a Signal object for
-        backward compatibility.
+        Gates 0-9 must ALL pass. Any single failure = rejection.
         """
 
         # Gate 0: System halted
@@ -82,17 +117,22 @@ class RiskEngine:
             self.halt(f"Daily loss Rs {self.capital.daily_pnl:.0f} >= limit Rs {daily_limit:.0f}")
             return RiskDecision(False, "Daily loss limit breached")
 
+        # Gate 2.5: Daily profit target -- secure the bag
+        if settings.DAILY_PROFIT_TARGET_PCT > 0 and self.capital.day_start_capital > 0:
+            profit_target = self.capital.day_start_capital * settings.DAILY_PROFIT_TARGET_PCT / 100
+            if self.capital.daily_pnl >= profit_target:
+                logger.info("Daily profit target hit: Rs {:.0f} >= {:.0f} ({}% of day start Rs {:.0f}). No new entries.",
+                           self.capital.daily_pnl, profit_target, settings.DAILY_PROFIT_TARGET_PCT,
+                           self.capital.day_start_capital)
+                return RiskDecision(False, f"Daily profit target {settings.DAILY_PROFIT_TARGET_PCT}% reached")
+
         # Gate 3: Weekly loss limit
         weekly_limit = self.capital.get_weekly_loss_limit()
         if self.capital.weekly_pnl < 0 and abs(self.capital.weekly_pnl) >= weekly_limit:
             self.halt(f"Weekly loss Rs {self.capital.weekly_pnl:.0f} >= limit Rs {weekly_limit:.0f}")
             return RiskDecision(False, "Weekly loss limit breached")
 
-        # Gate 4: Max trades per day
-        if self.capital.trades_today >= settings.MAX_TRADES_PER_DAY:
-            return RiskDecision(False, f"Max {settings.MAX_TRADES_PER_DAY} trades/day reached")
-
-        # Gate 5: Consecutive losses
+        # Gate 4: Consecutive losses
         if self.capital.consecutive_losses >= settings.MAX_CONSECUTIVE_LOSSES:
             self.halt(f"{self.capital.consecutive_losses} consecutive losses")
             return RiskDecision(False, "Consecutive loss limit hit")
@@ -102,6 +142,16 @@ class RiskEngine:
         if dd >= settings.DRAWDOWN_HALT_PCT:
             self.halt(f"Drawdown {dd:.1f}% >= halt threshold {settings.DRAWDOWN_HALT_PCT}%")
             return RiskDecision(False, "Max drawdown reached")
+
+        # Gate 5.5: VIX circuit breaker
+        vix = self._fetch_vix()
+        if vix is None:
+            logger.warning("VIX unavailable -- skipping VIX gate (proceeding with caution)")
+        elif vix > settings.MAX_VIX_THRESHOLD:
+            return RiskDecision(
+                False,
+                f"VIX {vix:.1f} > threshold {settings.MAX_VIX_THRESHOLD}",
+            )
 
         # Gate 7: Expiry day ban
         if settings.SKIP_EXPIRY_DAY:
@@ -116,17 +166,16 @@ class RiskEngine:
         if now_str > settings.ENTRY_END:
             return RiskDecision(False, f"After entry window ({settings.ENTRY_END})")
 
-        # Gate 9: Confluence threshold
-        if abs(confluence_score) < settings.CONFLUENCE_THRESHOLD:
-            return RiskDecision(False, f"Confluence {confluence_score:.0f} < threshold {settings.CONFLUENCE_THRESHOLD}")
-
-        strength_order = {"NONE": 0, "WEAK": 1, "MODERATE": 2, "STRONG": 3, "EXTREME": 4}
-        if strength_order.get(strength, 0) < strength_order.get(settings.MIN_STRENGTH, 3):
-            return RiskDecision(False, f"Strength {strength} < min {settings.MIN_STRENGTH}")
+        # Gate 9: Signal confidence threshold
+        min_conf = min_confidence_override if min_confidence_override is not None else getattr(settings, 'PULLBACK_MIN_CONFIDENCE', 50)
+        if confluence_score < min_conf:
+            return RiskDecision(False, f"Confidence {confluence_score:.0f} < min {min_conf}")
 
         # Compute lot size with drawdown-aware sizing
         lots = self.capital.get_max_lots(
             premium_per_unit=settings.PREMIUM_BASE)
+        if lot_multiplier != 1.0:
+            lots = max(1, int(lots * lot_multiplier))
         if lots <= 0:
             return RiskDecision(False, "Lot sizing returned 0 (drawdown halt)")
 
@@ -151,13 +200,31 @@ class RiskEngine:
             self.halt(f"RT: Daily loss Rs {self.capital.daily_pnl:.0f}")
             return False
 
-        # Check 2: Drawdown
+        # Check: Daily profit target (soft - just log, don't halt)
+        if settings.DAILY_PROFIT_TARGET_PCT > 0 and self.capital.day_start_capital > 0:
+            profit_target = self.capital.day_start_capital * settings.DAILY_PROFIT_TARGET_PCT / 100
+            if self.capital.daily_pnl >= profit_target:
+                logger.info("Profit target reached: Rs {:.0f} / {:.0f} ({}%)",
+                           self.capital.daily_pnl, profit_target, settings.DAILY_PROFIT_TARGET_PCT)
+
+        # Check 2: Weekly loss
+        weekly_limit = self.capital.get_weekly_loss_limit()
+        if self.capital.weekly_pnl < 0 and abs(self.capital.weekly_pnl) >= weekly_limit:
+            self.halt(f"RT: Weekly loss Rs {self.capital.weekly_pnl:.0f}")
+            return False
+
+        # Check 3: Consecutive losses
+        if self.capital.consecutive_losses >= settings.MAX_CONSECUTIVE_LOSSES:
+            self.halt(f"RT: {self.capital.consecutive_losses} consecutive losses")
+            return False
+
+        # Check 4: Drawdown
         dd = self.capital.drawdown_pct
         if dd >= settings.DRAWDOWN_HALT_PCT:
             self.halt(f"RT: Drawdown {dd:.1f}%")
             return False
 
-        # Check 3: Capital minimum
+        # Check 5: Capital minimum
         if self.capital.current_capital < settings.MIN_CAPITAL_TO_TRADE:
             self.halt(f"RT: Capital Rs {self.capital.current_capital:.0f}")
             return False

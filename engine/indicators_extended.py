@@ -265,30 +265,46 @@ def detect_divergence(price: pd.Series, indicator: pd.Series,
 # ═══════════════════════════════════════════════════════════════════
 
 def aggregate_timeframe(df: pd.DataFrame, period: int = 3) -> pd.DataFrame:
-    """Aggregate N candles into higher timeframe. e.g. 3x5min = 15min."""
-    n = len(df)
-    groups = n // period
-    if groups == 0:
+    """Aggregate N candles into higher timeframe using time-based resampling.
+
+    Uses pandas resample to create clock-aligned buckets, preventing
+    session boundary mixing when seeding multi-day data.
+    """
+    if len(df) == 0:
         return df.copy()
 
-    indices = []
-    opens, highs, lows, closes, volumes = [], [], [], [], []
-
-    for g in range(groups):
-        start = g * period
-        end = min(start + period, n)
-        chunk = df.iloc[start:end]
-        indices.append(chunk.index[-1])
-        opens.append(chunk["open"].iloc[0])
-        highs.append(chunk["high"].max())
-        lows.append(chunk["low"].min())
-        closes.append(chunk["close"].iloc[-1])
-        volumes.append(chunk["volume"].sum())
-
-    return pd.DataFrame({
-        "open": opens, "high": highs, "low": lows,
-        "close": closes, "volume": volumes,
-    }, index=indices)
+    freq = f"{period * 5}min"
+    try:
+        resampled = df.resample(freq).agg({
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        }).dropna(subset=["open"])
+        if len(resampled) == 0:
+            return df.copy()
+        return resampled
+    except Exception:
+        n = len(df)
+        groups = n // period
+        if groups == 0:
+            return df.copy()
+        indices, opens, highs, lows, closes, volumes = [], [], [], [], [], []
+        for g in range(groups):
+            start = g * period
+            end = min(start + period, n)
+            chunk = df.iloc[start:end]
+            indices.append(chunk.index[-1])
+            opens.append(chunk["open"].iloc[0])
+            highs.append(chunk["high"].max())
+            lows.append(chunk["low"].min())
+            closes.append(chunk["close"].iloc[-1])
+            volumes.append(chunk["volume"].sum())
+        return pd.DataFrame({
+            "open": opens, "high": highs, "low": lows,
+            "close": closes, "volume": volumes,
+        }, index=indices)
 
 
 def compute_htf_indicators(df_5m: pd.DataFrame):

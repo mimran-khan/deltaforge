@@ -1,10 +1,10 @@
 """Centralized configuration -- single source of truth.
 
-Every parameter used by any module is defined here.
-No hardcoded values anywhere else in the codebase.
+Every tunable parameter is defined here. Secrets and user-facing knobs
+are loaded from environment variables (via .env); domain constants that
+rarely change are defined as module-level values.
 
-Architecture: modular monolith with event-driven data flow.
-Reference: FIA Automated Trading Risk Controls, NautilusTrader patterns.
+See .env.example for the full list of overridable settings.
 """
 
 import os
@@ -24,10 +24,14 @@ ANGEL_PASSWORD = os.getenv("ANGEL_PASSWORD", "")
 ANGEL_TOTP_SECRET = os.getenv("ANGEL_TOTP_SECRET", "")
 
 # ═══════════════════════════════════════════════════════════════════
-#  ALERTS: Telegram
+#  ALERTS
 # ═══════════════════════════════════════════════════════════════════
+ALERT_METHOD = os.getenv("ALERT_METHOD", "slack")  # "slack", "imessage", or "telegram"
+IMESSAGE_RECIPIENT = os.getenv("IMESSAGE_RECIPIENT", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
+SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "")
 
 # ═══════════════════════════════════════════════════════════════════
 #  TRADING MODE
@@ -35,53 +39,95 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TRADING_MODE = os.getenv("TRADING_MODE", "paper")  # "paper" or "live"
 
 # ═══════════════════════════════════════════════════════════════════
+#  DASHBOARD
+# ═══════════════════════════════════════════════════════════════════
+DASHBOARD_HOST = os.getenv("DASHBOARD_HOST", "127.0.0.1")
+DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8900"))
+DASHBOARD_CORS_ORIGINS = os.getenv("DASHBOARD_CORS_ORIGINS", "")
+DASHBOARD_API_TOKEN = os.getenv("DASHBOARD_API_TOKEN", "")
+
+# ═══════════════════════════════════════════════════════════════════
 #  INSTRUMENT SPECS (verify against NSE on startup)
 # ═══════════════════════════════════════════════════════════════════
-NIFTY_LOT_SIZE = 75
+NIFTY_LOT_SIZE = 65            # updated Jan 2026 (was 75)
 BANKNIFTY_LOT_SIZE = 30
 NIFTY_EXPIRY_DAY = 1       # Tuesday = 1 (Monday=0, Sunday=6)
+NIFTY_INDEX_TOKEN = "99926000"
+BANKNIFTY_INDEX_TOKEN = "99926009"
 
 # ═══════════════════════════════════════════════════════════════════
 #  CAPITAL & POSITION SIZING
 # ═══════════════════════════════════════════════════════════════════
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
 
-CAPITAL_PER_LOT = 10_000        # add 1 lot for every Rs 10,000 of capital
-MAX_LOTS_CAP = 10               # safety cap: never exceed 10 lots
+CAPITAL_PER_LOT = 6_000         # 1 lot per Rs 6,000
+MAX_LOTS_CAP = 20               # safety cap: never exceed 20 lots
 
-CAPITAL_DEPLOY_PCT = 60.0
+CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "60"))
 COMPOUND_DAILY = True
+
+MAX_SIMULTANEOUS_POSITIONS = int(os.getenv("MAX_SIMULTANEOUS_POSITIONS", "2"))
+TRAIL_TRIGGER_PCT = float(os.getenv("TRAIL_TRIGGER_PCT", "12"))
+TRAIL_PCT = float(os.getenv("TRAIL_PCT", "8"))
+SCAN_WARMUP_BARS = int(os.getenv("SCAN_WARMUP_BARS", "50"))
+SHOCK_THRESHOLD_PCT = float(os.getenv("SHOCK_THRESHOLD_PCT", "1.5"))
+SHOCK_LOOKBACK_BARS = int(os.getenv("SHOCK_LOOKBACK_BARS", "3"))
 
 # ═══════════════════════════════════════════════════════════════════
 #  RISK MANAGEMENT (3-layer: pre-trade, real-time, post-trade)
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Pre-trade gates --
-MAX_TRADES_PER_DAY = int(os.getenv("MAX_TRADES_PER_DAY", "3"))
-MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "2"))
+MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "5"))
 MIN_CAPITAL_TO_TRADE = 3000     # halt if capital drops below this
 
 # -- Daily/weekly loss limits --
-DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "5"))
-WEEKLY_LOSS_LIMIT_PCT = 10.0
+DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "25"))
+DAILY_PROFIT_TARGET_PCT = float(os.getenv("DAILY_PROFIT_TARGET_PCT", "35"))  # stop entries after 35% daily gain
+WEEKLY_LOSS_LIMIT_PCT = float(os.getenv("WEEKLY_LOSS_LIMIT_PCT", "50"))
 
 # -- Drawdown tiers (path-dependent) --
-DRAWDOWN_HALFSIZE_PCT = 10.0    # reduce to 50% size if DD > 10%
-DRAWDOWN_HALT_PCT = 15.0        # full halt if DD > 15% from peak
+DRAWDOWN_HALFSIZE_PCT = 20.0    # reduce to 50% size if DD > 20% from peak
+DRAWDOWN_HALT_PCT = 35.0        # full halt if DD > 35% from peak
 
 # -- Volatility circuit breaker --
-MAX_VIX_THRESHOLD = 18.0        # skip if India VIX > 18
+MAX_VIX_THRESHOLD = float(os.getenv("MAX_VIX_THRESHOLD", "18"))  # skip if India VIX > 18
 VIX_SPIKE_HALT_PCT = 15.0       # halt if VIX jumps > 15% intraday
 
 # -- Expiry day --
-SKIP_EXPIRY_DAY = True           # no trading on expiry day (Tuesday)
+SKIP_EXPIRY_DAY = False          # allow trading on expiry day (Tuesday)
+
+# ═══════════════════════════════════════════════════════════════════
+#  RUNNER MODE (let winners run when trend is strong)
+# ═══════════════════════════════════════════════════════════════════
+TREND_RUNNER_ENABLED = True
+TREND_RUNNER_ADX_MIN = 38.0          # min ADX to activate runner on TGT hit (lowered from 40 for live/backtest parity)
+TREND_RUNNER_ADX_EXIT = 35.0         # exit runner when ADX drops below this
+TREND_RUNNER_TRAIL_PCT = 8.0         # trail 8% below peak premium in runner mode
+TREND_RUNNER_MAX_BARS = 12           # max extra bars in runner mode (1 hour)
+TREND_RUNNER_STRATEGIES = ["TREND_RIDE", "PULLBACK", "ADX_BREAKOUT", "STOCH_CROSS"]
+TREND_RUNNER_CUTOFF_TIME = "15:00"   # don't activate runner after this time (extended to capture late rallies)
+
+# ═══════════════════════════════════════════════════════════════════
+#  ADAPTIVE MODE (intra-day performance-based parameter modulation)
+# ═══════════════════════════════════════════════════════════════════
+ADAPTIVE_MODE_ENABLED = True
+ADAPTIVE_AGGRESSIVE_PNL_PCT = 5.0    # promote to AGGRESSIVE above +5% daily
+ADAPTIVE_AGGRESSIVE_CONSEC_WINS = 2  # need 2+ consecutive wins
+ADAPTIVE_AGGRESSIVE_MIN_WR = 60.0    # need 60%+ win rate today
+ADAPTIVE_DEFENSIVE_PNL_PCT = -7.0    # drop to DEFENSIVE below -7% daily
+ADAPTIVE_DEFENSIVE_CONSECUTIVE = 2   # or 2 consecutive losses
+ADAPTIVE_DEFENSIVE_WR = 40.0         # or WR < 40% with enough trades
+ADAPTIVE_DEFENSIVE_WR_MIN_TRADES = 3 # WR gate needs 3+ trades to activate
+ADAPTIVE_HALT_CONSECUTIVE = 3        # HALT after 3 consecutive losses
+ADAPTIVE_HALT_LOSS_PCT = -10.0       # HALT below -10% daily
 
 # ═══════════════════════════════════════════════════════════════════
 #  PULLBACK ENGINE (replaces confluence engine as primary alpha)
 # ═══════════════════════════════════════════════════════════════════
-PULLBACK_MIN_CONFIDENCE = 50     # minimum signal confidence to trade
-PULLBACK_HOLD_CANDLES = 24       # max hold = 2 hours (24 × 5min)
-PULLBACK_MAX_SIGNALS_PER_DAY = 3
+PULLBACK_MIN_CONFIDENCE = 50     # allow moderate-confidence signals
+PULLBACK_HOLD_CANDLES = 36       # max hold = 3 hours (36 × 5min)
+PULLBACK_MAX_SIGNALS_PER_DAY = int(os.getenv("PULLBACK_MAX_SIGNALS_PER_DAY", "5"))
 
 # Legacy confluence (kept for monitoring/logging)
 CONFLUENCE_THRESHOLD = float(os.getenv("CONFLUENCE_THRESHOLD", "55"))
@@ -109,31 +155,48 @@ CONFLUENCE_CATEGORY_WEIGHTS = {
 
 # ATM option model (higher delta = better premium tracking)
 PREMIUM_BASE = 100.0            # ATM Nifty option premium (~Rs 100)
-PREMIUM_DELTA = 0.45            # ATM delta
+PREMIUM_DELTA = 0.70            # ITM delta -- proven 82% WR
 PREMIUM_THETA_PER_CANDLE = 0.30 # ATM theta per 5-min candle
-PREMIUM_SL_PCT = 50.0           # wide SL (validated: let trades breathe)
-PREMIUM_TARGET_PCT = 0.0        # no TP (let winners run to time exit)
-PREMIUM_TARGET_POINTS = 0       # time exit only
+PREMIUM_SL_PCT = float(os.getenv("PREMIUM_SL_PCT", "15"))
+PREMIUM_TARGET_PCT = float(os.getenv("PREMIUM_TARGET_PCT", "20"))  # 20% target -- 1.3:1 R:R ratio
+PREMIUM_TARGET_POINTS = 0       # point-based TP disabled (use pct)
+
+# Dynamic theta model: scales theta proportionally to Nifty level
+THETA_REFERENCE_LEVEL = 24_000  # Nifty level where theta = THETA_BASE
+THETA_BASE = 0.30               # base theta at reference level
+
+
+def get_scaled_theta(nifty_price: float) -> float:
+    """Scale option theta decay proportionally to index level.
+
+    At Nifty 24,000: theta = 0.30/bar (base).
+    At Nifty 20,000: theta = 0.25/bar (lower absolute moves).
+    """
+    if nifty_price <= 0:
+        return THETA_BASE
+    return THETA_BASE * (nifty_price / THETA_REFERENCE_LEVEL)
 
 # Strike selection
 STRIKE_MIN_DTE = 3              # minimum days to expiry
 STRIKE_MAX_DTE = 5              # maximum days to expiry
 STRIKE_OFFSET = 0               # ATM strike (offset=0)
 
-# Execution costs (per lot, realistic for NFO)
-BROKERAGE_PER_ORDER = 20.0      # Rs 20 flat per order
-STT_PCT = 0.0625                # STT on premium (buy side)
-STAMP_DUTY_PCT = 0.003          # stamp duty
-SLIPPAGE_POINTS = 1.5           # Rs 1.5 per unit slippage assumption
+# Execution costs (realistic for NFO -- industry standard values)
+BROKERAGE_PER_ORDER = 20.0      # Rs 20 flat per order (discount brokers)
+STT_SELL_PCT = 0.05             # STT 0.05% on sell-side premium turnover
+EXCHANGE_TXN_PCT = 0.05         # exchange + SEBI + stamp + GST combined
+BID_ASK_SPREAD = 0.30           # Rs 0.30/unit ATM bid-ask half-spread
+MARKET_IMPACT_PCT = 0.10        # 0.1% premium impact for 5+ lots
+SLIPPAGE_POINTS = 0.30          # half-spread as slippage (buy at ask, sell at bid)
 
 # ═══════════════════════════════════════════════════════════════════
 #  TIMING (IST)
 # ═══════════════════════════════════════════════════════════════════
 MARKET_OPEN = "09:15"
 MARKET_CLOSE = "15:30"
-ENTRY_START = "09:45"           # no entry before 9:45 (let ORB settle)
-ENTRY_END = "13:30"             # no new entry after 13:30
-NO_NEW_ENTRY_AFTER = "13:30"    # alias for backward compat
+ENTRY_START = "09:30"           # entry from 09:30 (after first candle)
+ENTRY_END = os.getenv("ENTRY_END", "14:30")
+NO_NEW_ENTRY_AFTER = ENTRY_END  # alias for backward compat
 SQUARE_OFF_TIME = "15:15"       # hard exit
 SESSION_LOGIN_TIME = "08:30"
 INSTRUMENT_DOWNLOAD_TIME = "08:45"
@@ -149,8 +212,33 @@ DB_PATH = DATA_DIR / "trades.db"
 CAPITAL_FILE = DATA_DIR / "capital.json"
 INSTRUMENTS_FILE = DATA_DIR / "instruments.json"
 
-LOG_DIR.mkdir(exist_ok=True)
-DATA_DIR.mkdir(exist_ok=True)
+
+def ensure_dirs():
+    """Create runtime directories. Called by CLI/scheduler, not at import time."""
+    LOG_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(exist_ok=True)
+
+
+def _validate_settings():
+    """Validate critical settings at import time."""
+    errors = []
+    if STARTING_CAPITAL <= 0:
+        errors.append("STARTING_CAPITAL must be > 0")
+    if not (0 < DAILY_LOSS_LIMIT_PCT <= 100):
+        errors.append("DAILY_LOSS_LIMIT_PCT must be in (0, 100]")
+    if not (0 < WEEKLY_LOSS_LIMIT_PCT <= 100):
+        errors.append("WEEKLY_LOSS_LIMIT_PCT must be in (0, 100]")
+    if PREMIUM_SL_PCT <= 0:
+        errors.append("PREMIUM_SL_PCT must be > 0")
+    if ENTRY_START >= ENTRY_END:
+        errors.append("ENTRY_START must be before ENTRY_END")
+    if NIFTY_LOT_SIZE <= 0:
+        errors.append("NIFTY_LOT_SIZE must be > 0")
+    if errors:
+        raise ValueError("Invalid configuration:\n  - " + "\n  - ".join(errors))
+
+
+_validate_settings()
 
 # ═══════════════════════════════════════════════════════════════════
 #  LEGACY ALIASES (backward compat for strategies)

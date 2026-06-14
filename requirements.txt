@@ -1,11 +1,10 @@
-smartapi-python>=1.5.0
-pandas>=2.0.0
-numpy>=2.0.0
-pyotp>=2.9.0
-requests>=2.31.0
-websocket-client>=1.6.0
-python-dotenv>=1.0.0
-apscheduler>=3.10.0
-pytz>=2024.1
-loguru>=0.7.0
-yfinance>=0.2.0
+# This file is kept for compatibility. The canonical dependency list
+# is in pyproject.toml. Install with:
+#
+#   pip install -e ".[test]"
+#
+# or:
+#
+#   make install
+
+-e ".[test]"

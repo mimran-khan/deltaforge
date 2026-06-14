@@ -90,19 +90,37 @@ class BrokerConnection:
 
     def get_historical(self, exchange: str, token: str,
                        interval: str, from_date: str, to_date: str) -> list:
-        try:
-            params = {
-                "exchange": exchange,
-                "symboltoken": token,
-                "interval": interval,
-                "fromdate": from_date,
-                "todate": to_date,
-            }
-            data = self.api.getCandleData(params)
-            if data.get("status"):
-                return data["data"]
-        except Exception as e:
-            logger.error("Historical data error: {}", e)
+        delays = [10, 30, 60]
+        params = {
+            "exchange": exchange,
+            "symboltoken": token,
+            "interval": interval,
+            "fromdate": from_date,
+            "todate": to_date,
+        }
+        for attempt in range(len(delays) + 1):
+            try:
+                data = self.api.getCandleData(params)
+                if data.get("status") and data.get("data"):
+                    return data["data"]
+                msg = data.get("message", "empty response")
+                if attempt < len(delays):
+                    logger.warning(
+                        "Historical API attempt {}/{}: {} -- retrying in {}s",
+                        attempt + 1, len(delays) + 1, msg, delays[attempt])
+                    time.sleep(delays[attempt])
+                else:
+                    logger.error("Historical API failed after {} attempts: {}",
+                                 len(delays) + 1, msg)
+            except Exception as e:
+                if attempt < len(delays):
+                    logger.warning(
+                        "Historical API attempt {}/{} error: {} -- retrying in {}s",
+                        attempt + 1, len(delays) + 1, e, delays[attempt])
+                    time.sleep(delays[attempt])
+                else:
+                    logger.error("Historical data error after {} attempts: {}",
+                                 len(delays) + 1, e)
         return []
 
     def get_option_chain_ltp(self, exchange: str, symbol: str, token: str) -> Optional[dict]:
@@ -244,8 +262,11 @@ class BrokerConnection:
         try:
             resp = requests.get(url, timeout=30)
             instruments = resp.json()
-            with open(settings.INSTRUMENTS_FILE, "w") as f:
+            tmp = settings.INSTRUMENTS_FILE.with_suffix('.tmp')
+            with open(tmp, "w") as f:
                 json.dump(instruments, f)
+            import os as _os
+            _os.replace(str(tmp), str(settings.INSTRUMENTS_FILE))
             logger.info("Downloaded {} instruments", len(instruments))
             return instruments
         except Exception as e:

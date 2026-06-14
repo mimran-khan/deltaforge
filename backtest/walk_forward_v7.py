@@ -44,7 +44,7 @@ def backtest_v7(
     starting_capital: float = settings.STARTING_CAPITAL,
     entry_threshold: float = settings.CONFLUENCE_THRESHOLD,
     min_strength: str = settings.MIN_STRENGTH,
-    max_trades_day: int = settings.MAX_TRADES_PER_DAY,
+    max_trades_day: int = 99,
     hold_candles: int = settings.CONFLUENCE_HOLD_CANDLES,
     delta: float = settings.PREMIUM_DELTA,
     base_premium: float = settings.PREMIUM_BASE,

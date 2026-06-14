@@ -3,16 +3,16 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.tradingagent.daily</string>
+    <string>com.deltaforge.daily</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/venv/bin/python3</string>
-        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/main.py</string>
+        <string>__PROJECT_ROOT__/venv/bin/python3</string>
+        <string>__PROJECT_ROOT__/main.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/predatorroxy.macpro/Documents/TradingAgent</string>
+    <string>__PROJECT_ROOT__</string>
 
     <key>StartCalendarInterval</key>
     <dict>
@@ -23,15 +23,15 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/predatorroxy.macpro/Documents/TradingAgent/logs/launchd_stdout.log</string>
+    <string>__PROJECT_ROOT__/logs/launchd_stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/predatorroxy.macpro/Documents/TradingAgent/logs/launchd_stderr.log</string>
+    <string>__PROJECT_ROOT__/logs/launchd_stderr.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/Users/predatorroxy.macpro/Documents/TradingAgent/venv/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <string>__PROJECT_ROOT__/venv/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>TZ</key>
         <string>Asia/Kolkata</string>
     </dict>

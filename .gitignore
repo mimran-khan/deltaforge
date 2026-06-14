@@ -1,11 +1,42 @@
+# Python
 venv/
 __pycache__/
 *.pyc
-.env
-data/
-logs/
-*.db
-.DS_Store
+*.pyo
 *.egg-info/
 dist/
 build/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+data/
+logs/
+*.db
+
+# IDE / editor
+.cursor/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / linting caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Security
+*.pem
+*.key
+credentials.json

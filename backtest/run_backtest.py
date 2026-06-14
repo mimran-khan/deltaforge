@@ -19,6 +19,111 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import settings
 
+DATA_DIR = PROJECT_ROOT / "data"
+
+_5M_FILES = [
+    DATA_DIR / "nifty_5m_real.csv",
+    DATA_DIR / "nifty_5m_oos_2015_2024.csv",
+    DATA_DIR / "nifty_5m_all_merged.csv",
+]
+
+_1M_RAW = DATA_DIR / "nifty50_1min_github_raw.csv"
+_COMBINED_CACHE = DATA_DIR / "nifty_5m_combined.csv"
+
+
+def _load_5m_csv(path: Path) -> pd.DataFrame:
+    """Load a standard 5m CSV with date index + OHLCV columns."""
+    df = pd.read_csv(path, index_col=0, parse_dates=True)
+    df.columns = [c.lower() for c in df.columns]
+    df = df[["open", "high", "low", "close", "volume"]]
+    df = df.sort_index()
+    return df
+
+
+def _resample_1m_to_5m(path: Path) -> pd.DataFrame:
+    """Resample the 1-minute raw CSV (Instrument,Date,Time,O,H,L,C) to 5m OHLCV."""
+    df = pd.read_csv(path)
+    df.columns = [c.strip().lower() for c in df.columns]
+    df["datetime"] = pd.to_datetime(
+        df["date"] + " " + df["time"], format="%d-%m-%Y %H:%M:%S"
+    )
+    df = df.set_index("datetime").sort_index()
+    df = df.rename(columns={"open": "open", "high": "high", "low": "low", "close": "close"})
+    if "volume" not in df.columns:
+        df["volume"] = 5000
+
+    resampled = df[["open", "high", "low", "close", "volume"]].resample("5min").agg({
+        "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum",
+    }).dropna()
+    return resampled
+
+
+def _build_combined() -> pd.DataFrame:
+    """Combine ALL Nifty data sources into one deduplicated 5m DataFrame."""
+    frames = []
+
+    for path in _5M_FILES:
+        if path.exists():
+            try:
+                frames.append(_load_5m_csv(path))
+                logger.info("Loaded {} from {}", len(frames[-1]), path.name)
+            except Exception as e:
+                logger.debug("Skip {}: {}", path.name, e)
+
+    if _1M_RAW.exists():
+        try:
+            resampled = _resample_1m_to_5m(_1M_RAW)
+            frames.append(resampled)
+            logger.info("Resampled 1m->5m: {} candles from {}", len(resampled), _1M_RAW.name)
+        except Exception as e:
+            logger.debug("Skip 1m resample: {}", e)
+
+    if not frames:
+        return pd.DataFrame()
+
+    combined = pd.concat(frames)
+    combined = combined[~combined.index.duplicated(keep="last")]
+    combined = combined.sort_index()
+    return combined
+
+
+def load_real_data(days: int = 60) -> pd.DataFrame:
+    """Load real Nifty 5m data from ALL sources on disk and return the most recent N trading days.
+
+    Sources combined (deduplicated, most-recent wins):
+      - data/nifty_5m_real.csv        (recent 2026 data)
+      - data/nifty_5m_oos_2015_2024.csv (10 years of 5m data)
+      - data/nifty50_1min_github_raw.csv (resampled 1m->5m, fills volume gaps)
+    """
+    if _COMBINED_CACHE.exists():
+        try:
+            df = _load_5m_csv(_COMBINED_CACHE)
+            unique_days = sorted(set(df.index.date))
+            if len(unique_days) >= days:
+                selected = set(unique_days[-days:])
+                return df[df.index.map(lambda t: t.date() in selected)]
+            return df
+        except Exception:
+            pass
+
+    df = _build_combined()
+
+    if df.empty:
+        logger.warning("No real data found -- falling back to synthetic data")
+        return generate_nifty_data(days=days)
+
+    try:
+        df.to_csv(_COMBINED_CACHE)
+        logger.info("Cached combined dataset: {} candles -> {}", len(df), _COMBINED_CACHE.name)
+    except Exception:
+        pass
+
+    unique_days = sorted(set(df.index.date))
+    if len(unique_days) >= days:
+        selected = set(unique_days[-days:])
+        return df[df.index.map(lambda t: t.date() in selected)]
+    return df
+
 
 def generate_nifty_data(days: int = 100, interval: int = 5,
                          base: float = 24000) -> pd.DataFrame:
@@ -100,17 +205,55 @@ def generate_nifty_data(days: int = 100, interval: int = 5,
     return df
 
 
+def _calc_realistic_costs(entry_prem: float, exit_prem: float,
+                           qty: int, lots: int) -> float:
+    """Industry-standard execution cost model for NFO options.
+
+    Components (per round trip):
+      1. Brokerage: Rs 20/order x 2 = Rs 40
+      2. Bid-ask spread: Rs 0.30/unit x qty x 2 sides
+      3. STT: 0.05% of sell-side premium turnover
+      4. Exchange + SEBI + stamp + GST: 0.05% of total turnover
+      5. Market impact: 0.1% of premium for 5+ lots
+    """
+    brokerage = getattr(settings, 'BROKERAGE_PER_ORDER', 20) * 2
+
+    spread_per_unit = getattr(settings, 'BID_ASK_SPREAD', 0.30)
+    spread_cost = spread_per_unit * qty * 2
+
+    sell_turnover = exit_prem * qty
+    stt = sell_turnover * getattr(settings, 'STT_SELL_PCT', 0.05) / 100
+
+    total_turnover = (entry_prem + exit_prem) * qty
+    exchange_costs = total_turnover * getattr(settings, 'EXCHANGE_TXN_PCT', 0.05) / 100
+
+    impact = 0.0
+    if lots >= 5:
+        impact_pct = getattr(settings, 'MARKET_IMPACT_PCT', 0.10)
+        impact = total_turnover * impact_pct / 100
+
+    return brokerage + spread_cost + stt + exchange_costs + impact
+
+
 def run_compound_backtest(df: pd.DataFrame,
                            starting_capital: float = 10000,
-                           lot_size: int = 75,
-                           deploy_pct: float = 80.0) -> dict:
-    """Full compound backtest with ORB + VWAP + momentum signals.
+                           lot_size: int = 65,
+                           deploy_pct: float = 80.0,
+                           engine_override=None,
+                           use_adaptive: bool = True,
+                           use_risk_gates: bool = True) -> dict:
+    """Full compound backtest using the production MultiStrategyEngine.
 
-    Instead of relying on complex strategy objects (which are optimized
-    for real-time), this uses direct indicator-based signal logic that
-    generates trades at realistic frequency (1-3 per day on active days).
+    Uses the same signal generation, premium model, and risk gates
+    that run in live/paper trading -- results match real behaviour.
+    Costs modeled per industry standard (spread + STT + exchange + impact).
     """
-    from engine.indicators import ema, rsi, atr, vwap_intraday, supertrend_fast
+    from engine.multi_strategy_engine import MultiStrategyEngine
+    from engine.premium_model import create_premium_state
+    from risk.adaptive_mode import AdaptiveModeController
+
+    engine = engine_override if engine_override is not None else MultiStrategyEngine()
+    adaptive = AdaptiveModeController() if use_adaptive else None
 
     capital = starting_capital
     peak = capital
@@ -118,6 +261,7 @@ def run_compound_backtest(df: pd.DataFrame,
     equity_curve = []
 
     unique_days = sorted(set(df.index.date))
+    WARMUP_DAYS = 5  # Match check_today.py and live candle_builder
 
     for day_idx, day in enumerate(unique_days):
         day_df = df[df.index.date == day].copy()
@@ -126,164 +270,236 @@ def run_compound_backtest(df: pd.DataFrame,
                                   "trades": 0, "lots": 0})
             continue
 
+        prev_day_data = None
+        if day_idx > 0:
+            prev_day = unique_days[day_idx - 1]
+            prev_df = df[df.index.date == prev_day]
+            if len(prev_df) > 0:
+                prev_day_data = {
+                    "high": prev_df["high"].max(),
+                    "low": prev_df["low"].min(),
+                    "close": prev_df["close"].iloc[-1],
+                }
+        engine.reset_day(prev_day_data)
+        if adaptive:
+            adaptive.reset()
+
         day_start_cap = capital
         day_pnl = 0
         day_trades = 0
+        day_wins = 0
+        day_losses = 0
         consec_loss = 0
-        daily_loss_limit = day_start_cap * 0.20
+        daily_loss_limit = day_start_cap * (settings.DAILY_LOSS_LIMIT_PCT / 100)
+        daily_profit_target = day_start_cap * (getattr(settings, 'DAILY_PROFIT_TARGET_PCT', 35) / 100) if use_risk_gates else float('inf')
 
-        # Dynamic lot sizing: deploy_pct of capital
-        avg_premium = 95.0
-        cost_per_lot = avg_premium * lot_size
-        deployable = capital * (deploy_pct / 100)
-        day_lots = max(1, int(deployable / cost_per_lot))
+        per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
+        day_lots = max(1, int(capital / per_lot))
+        day_lots = min(day_lots, getattr(settings, 'MAX_LOTS_CAP', 10))
 
-        # Compute indicators for the day
-        close = day_df["close"]
-        high = day_df["high"]
-        low = day_df["low"]
-        volume = day_df["volume"]
+        # Multi-day warmup (like check_today.py and live engine)
+        warmup_start = max(0, day_idx - WARMUP_DAYS)
+        warmup_days = unique_days[warmup_start:day_idx + 1]
+        warmup_day_set = set(warmup_days)
+        warmup_df = df[df.index.map(lambda t: t.date() in warmup_day_set)]
+        indicators = engine.precompute(warmup_df)
+        today_indices = [i for i, ts in enumerate(warmup_df.index) if ts.date() == day]
 
-        ema9 = ema(close, 9)
-        ema20 = ema(close, 20)
-        rsi14 = rsi(close, 14)
-        vol_sma = volume.rolling(20, min_periods=5).mean()
+        open_positions = []
 
-        cum_tp_vol = ((high + low + close) / 3 * volume).cumsum()
-        cum_vol = volume.cumsum().replace(0, np.nan)
-        vwap_line = cum_tp_vol / cum_vol
-
-        # ORB range (first 15 min = first 3 candles of 5-min)
-        orb_candles = day_df.iloc[:3]
-        orb_high = orb_candles["high"].max()
-        orb_low = orb_candles["low"].min()
-        orb_range = orb_high - orb_low
-
-        signals = []
-
-        for i in range(4, len(day_df)):
-            ts = day_df.index[i]
+        for i in today_indices:
+            if i < 10:
+                continue
+            ts = warmup_df.index[i]
             time_str = ts.strftime("%H:%M")
-            if time_str < "09:30" or time_str > "14:30":
+            nifty_price = warmup_df["close"].iloc[i]
+
+            # Adaptive mode bar tick
+            if adaptive:
+                adaptive.on_bar()
+
+            ap_min_conf = 65 if (adaptive and adaptive.mode.value != "AGGRESSIVE") else 60
+            ap_lot_mult = 1.0
+            ap_max_sim = getattr(settings, 'MAX_SIMULTANEOUS_POSITIONS', 2)
+            ap_max_trades = 8
+            ap_trail_trigger = settings.TRAIL_TRIGGER_PCT
+            ap_trail_pct = settings.TRAIL_PCT
+            if adaptive:
+                ap = adaptive.profile
+                ap_min_conf = ap.min_confidence
+                ap_lot_mult = ap.lot_multiplier
+                ap_max_sim = ap.max_simultaneous
+                ap_max_trades = ap.max_trades_per_day
+                ap_trail_trigger = ap.trail_trigger_pct
+                ap_trail_pct = ap.trail_pct
+
+            closed_this_bar = []
+            for pos in open_positions:
+                pos["candles_held"] += 1
+                cur_prem = pos["prem_state"].current_premium(
+                    nifty_price, pos["candles_held"])
+
+                if cur_prem > pos["peak_premium"]:
+                    pos["peak_premium"] = cur_prem
+
+                trail_floor = pos["prem_state"].update_trail(
+                    cur_prem,
+                    trigger_pct=ap_trail_trigger,
+                    trail_pct=ap_trail_pct)
+
+                exit_reason = None
+                exit_prem = cur_prem
+
+                if cur_prem <= pos["sl_premium"]:
+                    exit_reason = "SL"
+                    exit_prem = pos["sl_premium"]
+                elif cur_prem >= pos["prem_state"].target_premium:
+                    exit_reason = "TGT"
+                    exit_prem = pos["prem_state"].target_premium
+                elif trail_floor is not None and cur_prem <= trail_floor:
+                    exit_reason = "TRAIL"
+                    exit_prem = trail_floor
+                elif pos["candles_held"] >= settings.PULLBACK_HOLD_CANDLES:
+                    exit_reason = "TIME"
+                elif time_str >= settings.SQUARE_OFF_TIME:
+                    exit_reason = "EOD"
+
+                if exit_reason:
+                    if exit_reason == "SL":
+                        engine.record_sl_exit(pos["signal_type"], i)
+
+                    costs = _calc_realistic_costs(
+                        pos["entry_premium"], exit_prem,
+                        pos["qty"], day_lots)
+
+                    raw_pnl = (exit_prem - pos["entry_premium"]) * pos["qty"]
+                    net_pnl = raw_pnl - costs
+
+                    capital += net_pnl
+                    day_pnl += net_pnl
+                    day_trades += 1
+                    won = net_pnl > 0
+                    if won:
+                        day_wins += 1
+                        consec_loss = 0
+                    else:
+                        day_losses += 1
+                        consec_loss += 1
+
+                    if adaptive:
+                        daily_pnl_pct = (day_pnl / day_start_cap * 100) if day_start_cap > 0 else 0
+                        adaptive.update(
+                            daily_pnl_pct=daily_pnl_pct,
+                            wins=day_wins, losses=day_losses,
+                            consecutive_losses=consec_loss,
+                            trades=day_trades, last_trade_won=won,
+                        )
+
+                    peak_gain = (pos["peak_premium"] - pos["entry_premium"]) / pos["entry_premium"] * 100
+
+                    trades.append({
+                        "strategy": pos["signal_type"], "signal": pos["direction"],
+                        "entry_time": pos["entry_time"], "exit_time": ts,
+                        "entry_premium": round(pos["entry_premium"], 2),
+                        "exit_premium": round(exit_prem, 2),
+                        "peak_premium": round(pos["peak_premium"], 2),
+                        "peak_gain_pct": round(peak_gain, 2),
+                        "qty": pos["qty"], "lots": day_lots,
+                        "pnl": round(net_pnl, 0), "reason": exit_reason,
+                        "capital_after": round(capital, 0),
+                    })
+                    closed_this_bar.append(pos)
+
+            for pos in closed_this_bar:
+                open_positions.remove(pos)
+
+            if len(open_positions) >= ap_max_sim:
                 continue
 
-            c_now = close.iloc[i]
-            c_prev = close.iloc[i - 1]
-            v_now = volume.iloc[i]
-            v_avg = vol_sma.iloc[i] if not np.isnan(vol_sma.iloc[i]) else 100000
-            e9 = ema9.iloc[i]
-            e20 = ema20.iloc[i]
-            e9_prev = ema9.iloc[i - 1]
-            e20_prev = ema20.iloc[i - 1]
-            r = rsi14.iloc[i] if not np.isnan(rsi14.iloc[i]) else 50
-            vw = vwap_line.iloc[i] if not np.isnan(vwap_line.iloc[i]) else c_now
-
-            # ── ORB Breakout ────────────────────────────────────
-            if orb_range < 250 and orb_range > 5 and time_str <= "11:30":
-                if c_now > orb_high and c_prev <= orb_high and c_now > vw:
-                    if v_now > v_avg * 1.2:
-                        signals.append(("ORB", "LONG", ts, c_now, orb_low,
-                                        c_now + orb_range * 1.5))
-
-                elif c_now < orb_low and c_prev >= orb_low and c_now < vw:
-                    if v_now > v_avg * 1.2:
-                        signals.append(("ORB", "SHORT", ts, c_now, orb_high,
-                                        c_now - orb_range * 1.5))
-
-            # ── EMA Crossover + VWAP ───────────────────────────
-            cross_up = e9_prev <= e20_prev and e9 > e20
-            cross_down = e9_prev >= e20_prev and e9 < e20
-
-            if cross_up and c_now > vw and r > 48:
-                signals.append(("VWAP_MOM", "LONG", ts, c_now,
-                                c_now - 40, c_now + 55))
-
-            elif cross_down and c_now < vw and r < 52:
-                signals.append(("VWAP_MOM", "SHORT", ts, c_now,
-                                c_now + 40, c_now - 55))
-
-            # ── Momentum burst (price moves 0.2%+ in 1 candle) ─
-            candle_move = (c_now - c_prev) / c_prev * 100
-            if abs(candle_move) > 0.15 and v_now > v_avg * 1.5:
-                if candle_move > 0 and c_now > vw:
-                    signals.append(("MOMENTUM", "LONG", ts, c_now,
-                                    c_now - 35, c_now + 50))
-                elif candle_move < 0 and c_now < vw:
-                    signals.append(("MOMENTUM", "SHORT", ts, c_now,
-                                    c_now + 35, c_now - 50))
-
-        # ── Execute signals sequentially ────────────────────────
-        for sig in signals:
-            strat, direction, entry_ts, entry_idx, sl_idx, tgt_idx = sig
-
-            if day_trades >= 5:
-                break
-            if consec_loss >= 2:
-                break
+            if consec_loss >= settings.MAX_CONSECUTIVE_LOSSES:
+                continue
             if day_pnl < 0 and abs(day_pnl) >= daily_loss_limit:
+                continue
+            if use_risk_gates and day_pnl >= daily_profit_target:
+                continue
+            if adaptive and adaptive.mode.value == "HALT":
+                continue
+            if day_trades >= ap_max_trades:
+                continue
+
+            open_dirs = {p["direction"] for p in open_positions}
+            signals = engine.scan(indicators, i, time_str,
+                                  max_total_override=ap_max_trades)
+
+            for signal in signals:
+                if signal.direction in open_dirs:
+                    continue
+                if signal.confidence < ap_min_conf:
+                    continue
+
+                theta = settings.get_scaled_theta(nifty_price)
+                prem_state = create_premium_state(
+                    entry_index_price=nifty_price,
+                    direction=signal.direction,
+                    base_premium=settings.PREMIUM_BASE,
+                    delta=settings.PREMIUM_DELTA,
+                    theta_per_candle=theta,
+                    sl_pct=settings.PREMIUM_SL_PCT,
+                    confluence_score=signal.confidence,
+                    signal_type=signal.signal_type,
+                )
+
+                spread = getattr(settings, 'BID_ASK_SPREAD', 0.30)
+                entry_premium = prem_state.entry_premium + spread
+                from engine.premium_model import STRATEGY_SL_PCT
+                eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, settings.PREMIUM_SL_PCT)
+                sl_premium = entry_premium * (1 - eff_sl / 100)
+                eff_lots = max(1, int(day_lots * ap_lot_mult))
+                qty = eff_lots * lot_size
+
+                open_positions.append({
+                    "direction": signal.direction,
+                    "signal_type": signal.signal_type,
+                    "entry_time": ts,
+                    "entry_premium": entry_premium,
+                    "sl_premium": sl_premium,
+                    "qty": qty,
+                    "prem_state": prem_state,
+                    "candles_held": 0,
+                    "peak_premium": entry_premium,
+                })
                 break
-
-            # Simulate premium
-            base_prem = 85 + np.random.uniform(-10, 30)
-            sl_prem = base_prem * 0.60     # 40% SL
-            tgt_prem = base_prem + 25      # Rs 25 target
-            qty = day_lots * lot_size
-
-            # Walk forward from entry to see if SL or target hits first
-            entry_i = day_df.index.get_loc(entry_ts)
-            exit_prem = base_prem
-            exit_reason = "EOD"
-            exit_time = day_df.index[-1]
-
-            for k in range(entry_i + 1, len(day_df)):
-                future_close = close.iloc[k]
-                if direction == "LONG":
-                    idx_move = future_close - entry_idx
-                else:
-                    idx_move = entry_idx - future_close
-
-                delta = 0.48 + np.random.uniform(-0.03, 0.03)
-                sim_prem = base_prem + idx_move * delta
-
-                if sim_prem <= sl_prem:
-                    exit_prem = sl_prem
-                    exit_reason = "SL_HIT"
-                    exit_time = day_df.index[k]
-                    break
-                elif sim_prem >= tgt_prem:
-                    exit_prem = tgt_prem
-                    exit_reason = "TARGET_HIT"
-                    exit_time = day_df.index[k]
-                    break
-
-                if day_df.index[k].strftime("%H:%M") >= "15:15":
-                    exit_prem = sim_prem
-                    exit_reason = "EOD"
-                    exit_time = day_df.index[k]
-                    break
-
-            pnl = (exit_prem - base_prem) * qty
-            capital += pnl
-            day_pnl += pnl
-            day_trades += 1
-
-            if pnl < 0:
-                consec_loss += 1
-            else:
-                consec_loss = 0
-
-            trades.append({
-                "strategy": strat, "signal": direction,
-                "entry_time": entry_ts, "exit_time": exit_time,
-                "entry_premium": round(base_prem, 2),
-                "exit_premium": round(exit_prem, 2),
-                "qty": qty, "lots": day_lots,
-                "pnl": round(pnl, 0), "reason": exit_reason,
-                "capital_after": round(capital, 0),
-            })
 
             if capital <= 0:
                 break
+
+        for pos in open_positions:
+            last_bar_idx = today_indices[-1]
+            nifty_price = warmup_df["close"].iloc[last_bar_idx]
+            exit_prem = pos["prem_state"].current_premium(
+                nifty_price, pos["candles_held"])
+            brokerage = getattr(settings, 'BROKERAGE_PER_ORDER', 20) * 2
+            stt = exit_prem * pos["qty"] * getattr(settings, 'STT_PCT', 0.0125) / 100
+            slippage = getattr(settings, 'SLIPPAGE_POINTS', 0.5) * pos["qty"]
+            costs = brokerage + stt + slippage
+            raw_pnl = (exit_prem - pos["entry_premium"]) * pos["qty"]
+            net_pnl = raw_pnl - costs
+            capital += net_pnl
+            day_pnl += net_pnl
+            day_trades += 1
+            peak_gain = (pos["peak_premium"] - pos["entry_premium"]) / pos["entry_premium"] * 100
+
+            trades.append({
+                "strategy": pos["signal_type"], "signal": pos["direction"],
+                "entry_time": pos["entry_time"], "exit_time": warmup_df.index[last_bar_idx],
+                "entry_premium": round(pos["entry_premium"], 2),
+                "exit_premium": round(exit_prem, 2),
+                "peak_premium": round(pos["peak_premium"], 2),
+                "peak_gain_pct": round(peak_gain, 2),
+                "qty": pos["qty"], "lots": day_lots,
+                "pnl": round(net_pnl, 0), "reason": "EOD",
+                "capital_after": round(capital, 0),
+            })
 
         if capital > peak:
             peak = capital
@@ -441,17 +657,48 @@ def main():
     logger.remove()
     logger.add(sys.stderr, level="ERROR")
 
-    print(f"\nGenerating {args.days} trading days of synthetic Nifty data...")
-    df = generate_nifty_data(days=args.days)
-    print(f"Generated {len(df)} candles across {len(set(df.index.date))} days")
+    print(f"\nLoading {args.days} trading days of Nifty data...")
+    df = load_real_data(days=args.days)
+    unique_days = sorted(set(df.index.date))
+    print(f"Loaded {len(df)} candles across {len(unique_days)} days")
 
-    print(f"Running compound backtest: Rs {args.capital:,.0f}, "
-          f"{args.deploy_pct:.0f}% deployed...")
+    lot_size = settings.NIFTY_LOT_SIZE
 
+    # ── Walk-forward split: 70% train / 30% out-of-sample ──
+    split_idx = int(len(unique_days) * 0.70)
+    train_days = set(unique_days[:split_idx])
+    test_days = set(unique_days[split_idx:])
+    df_train = df[df.index.map(lambda t: t.date() in train_days)]
+    df_test = df[df.index.map(lambda t: t.date() in test_days)]
+
+    print(f"\n{'=' * 65}")
+    print(f"  WALK-FORWARD VALIDATION")
+    print(f"  Train: {len(train_days)} days ({min(train_days)} → {max(train_days)})")
+    print(f"  Test:  {len(test_days)} days ({min(test_days)} → {max(test_days)})")
+    print(f"  Lot size: {lot_size} | Cost model: spread + STT + exchange + impact")
+    print(f"{'=' * 65}")
+
+    # ── IN-SAMPLE (train) ──
+    print(f"\n  ── IN-SAMPLE ({len(train_days)} days) ──")
+    results_train = run_compound_backtest(
+        df_train, starting_capital=args.capital,
+        lot_size=lot_size, deploy_pct=args.deploy_pct,
+    )
+    print_results(results_train)
+
+    # ── OUT-OF-SAMPLE (test) ──
+    print(f"\n  ── OUT-OF-SAMPLE ({len(test_days)} days) ──")
+    results_test = run_compound_backtest(
+        df_test, starting_capital=args.capital,
+        lot_size=lot_size, deploy_pct=args.deploy_pct,
+    )
+    print_results(results_test)
+
+    # ── Full period for reference ──
+    print(f"\n  ── FULL PERIOD ({len(unique_days)} days) ──")
     results = run_compound_backtest(
         df, starting_capital=args.capital,
-        lot_size=settings.NIFTY_LOT_SIZE,
-        deploy_pct=args.deploy_pct,
+        lot_size=lot_size, deploy_pct=args.deploy_pct,
     )
     print_results(results)
 
