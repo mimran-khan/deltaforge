@@ -125,6 +125,12 @@ db-summary: install  ## Show today's trade summary
 db-stats: install  ## Show per-strategy statistics
 	@$(DF) db stats
 
+# ─── Reports ────────────────────────────────────────────────
+
+.PHONY: report
+report: install  ## Generate static trade report (docs/index.html)
+	@$(PYTHON) -m reports.generate
+
 # ─── Dashboard ───────────────────────────────────────────────
 
 .PHONY: dashboard

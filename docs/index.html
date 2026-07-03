@@ -1,0 +1,2613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeltaForge — Trade Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #21262d;
+  --text: #e6edf3; --text-dim: #8b949e; --text-muted: #484f58;
+  --green: #26a69a; --red: #ef5350; --blue: #2962ff;
+  --accent: #58a6ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg); color: var(--text);
+  line-height: 1.6; padding: 0;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+}
+.header-right { font-size: 0.8rem; color: var(--text-dim); text-align: right; }
+.updated { font-size: 0.7rem; color: var(--text-muted); }
+
+/* KPI Row */
+.kpi-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px; margin-bottom: 24px;
+}
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.kpi-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi-value { font-size: 1.3rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+/* Strategy Table */
+.strat-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 0.82rem; }
+.strat-table th {
+  text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text-dim); font-weight: 600; font-size: 0.7rem; text-transform: uppercase;
+}
+.strat-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; }
+
+/* Charts */
+.chart-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 24px;
+}
+.chart-title { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.equity-svg, .bars-svg { width: 100%; height: auto; }
+
+/* Day Sections */
+.day-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 12px; overflow: hidden;
+}
+.day-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; cursor: pointer; list-style: none;
+  transition: background 0.15s;
+}
+.day-summary:hover { background: #1c2129; }
+.day-summary::-webkit-details-marker { display: none; }
+.day-left { display: flex; align-items: center; gap: 12px; }
+.day-date { font-weight: 600; font-size: 0.95rem; }
+.day-stats { font-size: 0.8rem; color: var(--text-dim); }
+.day-pnl { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; }
+.day-body { padding: 0 18px 18px; }
+.day-context {
+  display: flex; gap: 20px; flex-wrap: wrap; padding: 10px 0;
+  margin-bottom: 12px; border-bottom: 1px solid var(--border);
+  font-size: 0.8rem; color: var(--text-dim);
+}
+.day-context b { color: var(--text); }
+
+/* Trade Cards */
+.trade-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 14px 16px; margin-bottom: 10px;
+  border-left: 3px solid var(--border);
+}
+.trade-card.pnl-pos { border-left-color: var(--green); }
+.trade-card.pnl-neg { border-left-color: var(--red); }
+.trade-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.trade-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.trade-pnl { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.05rem; }
+.trade-reason {
+  font-size: 0.8rem; color: var(--accent); background: var(--accent)11;
+  padding: 6px 10px; border-radius: 4px; margin-bottom: 10px;
+  font-family: 'JetBrains Mono', monospace; border: 1px solid var(--accent)22;
+}
+.trade-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.trade-col { display: flex; flex-direction: column; gap: 4px; }
+.metric { display: flex; justify-content: space-between; gap: 8px; }
+.metric-label { font-size: 0.72rem; color: var(--text-dim); }
+.metric-val { font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
+
+/* Badges */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+}
+.badge-long { background: var(--green)22; color: var(--green); border: 1px solid var(--green)44; }
+.badge-short { background: var(--red)22; color: var(--red); border: 1px solid var(--red)44; }
+.exit-sl { background: #ef535022; color: #ef5350; border: 1px solid #ef535044; }
+.exit-tgt { background: #26a69a22; color: #26a69a; border: 1px solid #26a69a44; }
+.exit-trail { background: #ff8c0022; color: #ff8c00; border: 1px solid #ff8c0044; }
+.exit-other { background: #78787822; color: #787878; border: 1px solid #78787844; }
+
+/* P&L Colors */
+.pnl-pos { color: var(--green); }
+.pnl-neg { color: var(--red); }
+.pnl-zero { color: var(--text-dim); }
+
+/* Section Labels */
+.section-label {
+  font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: 0.08em; font-weight: 600; margin: 24px 0 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .trade-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .day-context { flex-direction: column; gap: 4px; }
+  .strat-table { font-size: 0.72rem; }
+  .strat-table th, .strat-table td { padding: 6px 8px; }
+}
+
+.footer {
+  text-align: center; padding: 24px 0; color: var(--text-muted);
+  font-size: 0.7rem; border-top: 1px solid var(--border); margin-top: 24px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>DeltaForge</h1>
+      <div class="updated">Trade Report &middot; 20 trading days</div>
+    </div>
+    <div class="header-right">
+      <div>Generated Jul 03, 2026 23:55 IST</div>
+      <div class="updated">Paper Trading &middot; MultiStratV11</div>
+    </div>
+  </div>
+
+  
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Trades</div><div class="kpi-value">71</div></div>
+      <div class="kpi"><div class="kpi-label">Win Rate</div><div class="kpi-value">43.7%</div></div>
+      <div class="kpi"><div class="kpi-label">Total P&amp;L</div><div class="kpi-value pnl-pos">+45,070.35</div></div>
+      <div class="kpi"><div class="kpi-label">Profit Factor</div><div class="kpi-value">1.74</div></div>
+      <div class="kpi"><div class="kpi-label">Avg Trade</div><div class="kpi-value pnl-pos">+634.79</div></div>
+      <div class="kpi"><div class="kpi-label">Best / Worst</div><div class="kpi-value"><span class="pnl-pos">+16,885</span> / <span class="pnl-neg">-10,071</span></div></div>
+      <div class="kpi"><div class="kpi-label">Capital</div><div class="kpi-value">90,754</div></div>
+      <div class="kpi"><div class="kpi-label">Max Drawdown</div><div class="kpi-value pnl-neg">8.5%</div></div>
+    </div>
+  
+    <div class="chart-section">
+      <div class="chart-title">Equity Curve</div>
+      <svg viewBox="0 0 800 200" class="equity-svg">
+  <line x1="10" y1="55.0" x2="790" y2="55.0" stroke="#333" stroke-dasharray="4"/><text x="12" y="52.0" fill="#666" font-size="10">47,797</text><line x1="10" y1="100.0" x2="790" y2="100.0" stroke="#333" stroke-dasharray="4"/><text x="12" y="97.0" fill="#666" font-size="10">31,266</text><line x1="10" y1="145.0" x2="790" y2="145.0" stroke="#333" stroke-dasharray="4"/><text x="12" y="142.0" fill="#666" font-size="10">14,734</text>
+  <polygon points="10.0,190 10.0,157.9 21.0,160.8 32.0,166.5 43.0,172.1 53.9,160.6 64.9,163.5 75.9,166.5 86.9,169.4 97.9,172.3 108.9,175.2 119.9,174.4 130.8,173.8 141.8,176.7 152.8,176.3 163.8,175.6 174.8,178.5 185.8,177.8 196.8,180.8 207.7,179.4 218.7,182.3 229.7,181.1 240.7,179.5 251.7,174.3 262.7,172.6 273.7,173.9 284.6,175.5 295.6,174.8 306.6,173.0 317.6,174.3 328.6,175.9 339.6,175.0 350.6,148.2 361.5,152.2 372.5,156.1 383.5,154.3 394.5,165.7 405.5,165.9 416.5,157.2 427.5,151.9 438.5,152.1 449.4,170.8 460.4,172.1 471.4,159.7 482.4,161.2 493.4,161.8 504.4,189.2 515.4,190.0 526.3,171.5 537.3,172.4 548.3,158.5 559.3,125.6 570.3,126.9 581.3,124.7 592.3,122.9 603.2,80.0 614.2,55.2 625.2,55.3 636.2,55.5 647.2,54.1 658.2,44.5 669.2,46.5 680.1,47.4 691.1,46.0 702.1,46.7 713.1,55.3 724.1,47.3 735.1,56.0 746.1,10.0 757.0,11.3 768.0,12.2 779.0,25.0 790.0,35.2 790.0,190" fill="#26a69a" opacity="0.08"/>
+  <polyline points="10.0,157.9 21.0,160.8 32.0,166.5 43.0,172.1 53.9,160.6 64.9,163.5 75.9,166.5 86.9,169.4 97.9,172.3 108.9,175.2 119.9,174.4 130.8,173.8 141.8,176.7 152.8,176.3 163.8,175.6 174.8,178.5 185.8,177.8 196.8,180.8 207.7,179.4 218.7,182.3 229.7,181.1 240.7,179.5 251.7,174.3 262.7,172.6 273.7,173.9 284.6,175.5 295.6,174.8 306.6,173.0 317.6,174.3 328.6,175.9 339.6,175.0 350.6,148.2 361.5,152.2 372.5,156.1 383.5,154.3 394.5,165.7 405.5,165.9 416.5,157.2 427.5,151.9 438.5,152.1 449.4,170.8 460.4,172.1 471.4,159.7 482.4,161.2 493.4,161.8 504.4,189.2 515.4,190.0 526.3,171.5 537.3,172.4 548.3,158.5 559.3,125.6 570.3,126.9 581.3,124.7 592.3,122.9 603.2,80.0 614.2,55.2 625.2,55.3 636.2,55.5 647.2,54.1 658.2,44.5 669.2,46.5 680.1,47.4 691.1,46.0 702.1,46.7 713.1,55.3 724.1,47.3 735.1,56.0 746.1,10.0 757.0,11.3 768.0,12.2 779.0,25.0 790.0,35.2" fill="none" stroke="#26a69a" stroke-width="2"/>
+  <circle cx="790.0" cy="35.2" r="4" fill="#26a69a"/>
+  <text x="785.0" y="27.2" fill="#26a69a" font-size="11" text-anchor="end">55,070</text>
+  <text x="12.0" y="149.9" fill="#888" font-size="11">10,000</text>
+</svg>
+    </div>
+  
+    <div class="chart-section">
+      <div class="chart-title">Daily P&amp;L</div>
+      <svg viewBox="0 0 800 120" class="bars-svg">
+  <line x1="10" y1="60.0" x2="790" y2="60.0" stroke="#444" stroke-width="1"/>
+  <rect x="12.0" y="60.0" width="35.0" height="1.9" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-02: -1,077.66</title></rect><text x="29.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-02</text><rect x="51.0" y="60.0" width="35.0" height="5.6" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-03: -3,143.89</title></rect><text x="68.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-03</text><rect x="90.0" y="60.0" width="35.0" height="7.4" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-04: -4,182.08</title></rect><text x="107.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-04</text><rect x="129.0" y="59.2" width="35.0" height="0.8" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-05: +455.58</title></rect><text x="146.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-05</text><rect x="168.0" y="56.6" width="35.0" height="3.4" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-08: +1,910.35</title></rect><text x="185.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-08</text><rect x="207.0" y="58.9" width="35.0" height="1.1" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-09: +642.34</title></rect><text x="224.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-09</text><rect x="246.0" y="60.0" width="35.0" height="1.4" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-10: -801.53</title></rect><text x="263.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-10</text><rect x="285.0" y="60.0" width="35.0" height="0.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-11: -83.22</title></rect><text x="302.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-11</text><rect x="324.0" y="42.5" width="35.0" height="17.5" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-12: +9,833.17</title></rect><text x="341.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-12</text><rect x="363.0" y="60.0" width="35.0" height="5.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-15: -2,891.87</title></rect><text x="380.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-15</text><rect x="402.0" y="58.8" width="35.0" height="1.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-16: +673.44</title></rect><text x="419.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-16</text><rect x="441.0" y="60.0" width="35.0" height="7.5" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-18: -4,215.94</title></rect><text x="458.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-18</text><rect x="480.0" y="60.0" width="35.0" height="4.2" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-22: -2,333.71</title></rect><text x="497.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-22</text><rect x="519.0" y="53.3" width="35.0" height="6.7" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-23: +3,784.47</title></rect><text x="536.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-23</text><rect x="558.0" y="57.8" width="35.0" height="2.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-24: +1,219.27</title></rect><text x="575.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-24</text><rect x="597.0" y="36.8" width="35.0" height="23.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-25: +13,058.11</title></rect><text x="614.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-25</text><rect x="636.0" y="15.0" width="35.0" height="45.0" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-30: +25,298.01</title></rect><text x="653.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-30</text><rect x="675.0" y="55.2" width="35.0" height="4.8" fill="#26a69a" rx="2" opacity="0.85"><title>2026-07-01: +2,694.96</title></rect><text x="692.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-01</text><rect x="714.0" y="37.4" width="35.0" height="22.6" fill="#26a69a" rx="2" opacity="0.85"><title>2026-07-02: +12,694.06</title></rect><text x="731.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-02</text><rect x="753.0" y="60.0" width="35.0" height="15.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-07-03: -8,463.51</title></rect><text x="770.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-03</text>
+</svg>
+    </div>
+  
+    <div class="section-label">Strategy Breakdown</div>
+    <table class="strat-table">
+      <thead><tr><th>Strategy</th><th>Trades</th><th>Wins</th><th>WR</th><th>P&amp;L</th></tr></thead>
+      <tbody><tr>
+          <td><span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span></td>
+          <td>23</td><td>9</td><td>39.1%</td>
+          <td class="pnl-pos">+30,309.31</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span></td>
+          <td>5</td><td>3</td><td>60.0%</td>
+          <td class="pnl-pos">+10,724.44</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE</span></td>
+          <td>3</td><td>2</td><td>66.7%</td>
+          <td class="pnl-pos">+9,579.98</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span></td>
+          <td>5</td><td>3</td><td>60.0%</td>
+          <td class="pnl-pos">+4,163.52</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#787b8622;color:#787b86;border:1px solid #787b8644">ADX_BREAKOUT_0</span></td>
+          <td>2</td><td>1</td><td>50.0%</td>
+          <td class="pnl-pos">+41.89</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_4</span></td>
+          <td>1</td><td>0</td><td>0.0%</td>
+          <td class="pnl-neg">-68.64</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#787b8622;color:#787b86;border:1px solid #787b8644">EMA_MOMENTUM</span></td>
+          <td>1</td><td>0</td><td>0.0%</td>
+          <td class="pnl-neg">-603.85</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#ff8c0022;color:#ff8c00;border:1px solid #ff8c0044">STOCH_CROSS_0</span></td>
+          <td>1</td><td>0</td><td>0.0%</td>
+          <td class="pnl-neg">-1,439.08</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span></td>
+          <td>12</td><td>7</td><td>58.3%</td>
+          <td class="pnl-neg">-1,699.30</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_2</span></td>
+          <td>3</td><td>0</td><td>0.0%</td>
+          <td class="pnl-neg">-2,214.15</td>
+        </tr><tr>
+          <td><span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span></td>
+          <td>15</td><td>6</td><td>40.0%</td>
+          <td class="pnl-neg">-3,723.77</td>
+        </tr></tbody>
+    </table>
+  <div class="section-label">Trade Log</div>
+    <details class="day-section" open>
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Friday, Jul 03 2026</span>
+          <span class="day-stats">2 trades &middot; 0W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-8,463.51</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>99,217.79</b></span>
+          <span>Signals Scored: <b>2</b></span>
+          <span>Win Rate: <b>0.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-4,710.83</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=31↑ | +DI=28&gt;14 | RSI15=76↑ | RSI5=67</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.54</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">15</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:10:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">100.01</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">93.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">76.1</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,346.25</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">100.31</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">290.40</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-3,752.68</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=71↑ | CCI=-95&lt;-80</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.09</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">14</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:25:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">100.27</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">87.36806777865274%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">71.2</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,330.45</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">100.57</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">273.33</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Thursday, Jul 02 2026</span>
+          <span class="day-stats">6 trades &middot; 2W 4L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+12,694.06</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>85,729.00</b></span>
+          <span>Signals Scored: <b>4</b></span>
+          <span>Win Rate: <b>33.3%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-3,150.55</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=31↑ | +DI=29&gt;9 | RSI15=62↑ | RSI5=66</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:35</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.14</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">13</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:35:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">100.72</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">62.4</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,132.40</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">101.02</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">257.10</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STRATEGY_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+2,926.38</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=37↑ | +DI=24&gt;10 | RSI15=63↑ | RSI5=61</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.22</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">12</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:25:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">108.29</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">3 candles (~15m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">89.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">58.5</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,142.85</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">101.79</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">246.40</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-3,172.50</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:40</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.94</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">13</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:40:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">101.49</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">98.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">63.0</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">258.77</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STRATEGY_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+16,885.46</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=27↑ | +DI=29&gt;7 | RSI15=61↑ | RSI5=61</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.54</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">12</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:45:04</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">126.52</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">93.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.1</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,150.25</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">101.40</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">261.00</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-487.58</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">16:20</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6513.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6476.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">93.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">63.9</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-307.15</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">20:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6443.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6462.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">65.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">36.9</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Wednesday, Jul 01 2026</span>
+          <span class="day-stats">5 trades &middot; 2W 3L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+2,694.96</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>39,705.32</b></span>
+          <span>Signals Scored: <b>2</b></span>
+          <span>Win Rate: <b>40.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+3,503.98</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=61↑ | CCI=-123&lt;-80</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.60</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">3</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:45:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">121.95</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">81.20097272072286%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">60.7</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,017.50</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">100.49</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">73.88</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-734.26</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=61↑ | RSI=48&lt;48</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:40</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.61</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">3</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:40:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">100.20</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">81.3916359343217%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.3</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,017.25</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">100.50</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">69.64</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-328.59</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">17:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6574.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6595.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">30.1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+531.67</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">20:50</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6597.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6532.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">100.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">44.5</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">EOD</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-277.84</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">23:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6508.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6524.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">29 candles (~145m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">98.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">36.1</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Tuesday, Jun 30 2026</span>
+          <span class="day-stats">5 trades &middot; 3W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+25,298.01</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>52,977.83</b></span>
+          <span>Signals Scored: <b>3</b></span>
+          <span>Win Rate: <b>60.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">STRATEGY_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+15,768.40</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=35↓ | RSI=52&gt;52 | Stoch=100&gt;70 | WR=-0&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:00</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">105.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:00:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">135.79</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">100.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">34.7</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,915.30</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">101.95</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">192.59</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+9,098.94</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↓ | ADX=28↑ | -DI=34&gt;9 | RSI15=39↓ | RSI5=35</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:20</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.54</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">10</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:20:01</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">118.88</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">93.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">39.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,886.55</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">102.03</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">219.20</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-39.98</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">16:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6710.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6718.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">83.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">66.4</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-50.06</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">19:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6718.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6725.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">89.53547516664662%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">55.1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#787b8622;color:#787b86;border:1px solid #787b8644">ADX_BREAKOUT_0</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+520.71</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">23:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6685.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6621.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">79.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">44.4</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Thursday, Jun 25 2026</span>
+          <span class="day-stats">4 trades &middot; 3W 1L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+13,058.11</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>56,412.97</b></span>
+          <span>Signals Scored: <b>2</b></span>
+          <span>Win Rate: <b>75.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">TRAILING_SL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+12,087.00</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">185.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">7</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:25:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">212.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">31 candles (~155m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">93.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">70.0</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#787b8622;color:#787b86;border:1px solid #787b8644">ADX_BREAKOUT_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-478.82</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">16:31</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6627.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6591.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">69.0</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+810.59</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">20:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6611.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6704.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">36 candles (~180m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">89.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">54.6</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">EOD</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+639.34</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">23:30</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6735.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6811.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">34 candles (~170m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">98.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">68.6</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Wednesday, Jun 24 2026</span>
+          <span class="day-stats">5 trades &middot; 2W 3L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+1,219.27</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>60,837.14</b></span>
+          <span>Signals Scored: <b>0</b></span>
+          <span>Win Rate: <b>40.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-10,071.40</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=34↓ | RSI=54&gt;52 | Stoch=91&gt;70 | WR=-9&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">10:12</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.49</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">9</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">10:12:45</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">86.58</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">79.81759228813561%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">33.9</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,892.30</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">86.88</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">181.46</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-295.37</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=44↑ | +DI=38&gt;12 | RSI15=57↑ | RSI5=70</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.62</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">7</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:45:39</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">104.32</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">94.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">57.2</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,005.50</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">86.42</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">158.87</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+6,810.99</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=25↑ | +DI=31&gt;15 | RSI15=56↑ | RSI5=57</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:11</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.22</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">7</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:11:12</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.55</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">89.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">56.3</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,996.60</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">91.71</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">165.53</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-331.95</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=37↑ | +DI=46&gt;9 | RSI15=60↑ | RSI5=70</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:23</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:23:57</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">104.40</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">95.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">60.2</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,046.40</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">92.14</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">175.95</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+5,107.00</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:30</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:30:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">114.87</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">95.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">60.2</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">181.40</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Tuesday, Jun 23 2026</span>
+          <span class="day-stats">3 trades &middot; 1W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+3,784.47</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>55,072.05</b></span>
+          <span>Signals Scored: <b>3</b></span>
+          <span>Win Rate: <b>33.3%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_3</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">STEP_TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+4,545.83</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=33↓ | RSI=56&gt;52 | Stoch=79&gt;70 | WR=-21&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">09:42</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.32</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">09:42:04</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">113.41</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">90.21484121894451%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">32.6</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,123.65</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">93.89</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">180.34</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_2</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-562.69</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">15:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">6940.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">6984.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">24 candles (~120m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">95.67395564517625%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">41.1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_2</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-198.67</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">15:55</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">94.78</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">94.70</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">24 candles (~120m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">90.17856862720963%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">57.3</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Monday, Jun 22 2026</span>
+          <span class="day-stats">6 trades &middot; 2W 4L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-2,333.71</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>55,072.05</b></span>
+          <span>Signals Scored: <b>0</b></span>
+          <span>Win Rate: <b>33.3%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_4</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">BREAKEVEN_SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-68.64</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=59↑ | CCI=-134&lt;-80</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:39</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">105.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">7</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:39:40</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">105.30</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">6 candles (~30m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">100.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">56.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,120.45</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">95.86</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">159.64</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">BREAKEVEN_SL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+3,196.66</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:59</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.20</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">7</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:59:22</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">111.58</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.76892461185888%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">59.2</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">161.89</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_1</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">BREAKEVEN_SL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+1,949.82</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=61↑ | RSI=47&lt;48</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:14</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.99</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:14:09</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">108.08</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">86.16594021676804%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">60.6</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,119.40</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">95.67</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">177.31</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">BREAKEVEN_SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-72.53</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=26↑ | +DI=23&gt;12 | RSI15=63↑ | RSI5=60</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:49</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.94</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:49:27</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">105.14</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">98.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">62.6</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">24,137.40</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">92.35</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">176.53</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-6,884.16</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">15:00</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">105.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">8</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">92.19</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">100.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.1</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-454.86</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">15:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">7182.00</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">7149.00</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">24 candles (~120m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">86.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">54.0</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Thursday, Jun 18 2026</span>
+          <span class="day-stats">1 trade &middot; 0W 1L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-4,215.94</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>19,282.68</b></span>
+          <span>Signals Scored: <b>4</b></span>
+          <span>Win Rate: <b>0.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-4,215.94</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:05</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.14</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">4</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:05:02</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">88.22</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">19 candles (~95m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.2</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">76.48</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Tuesday, Jun 16 2026</span>
+          <span class="day-stats">1 trade &middot; 1W 0L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+673.44</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>18,609.24</b></span>
+          <span>Signals Scored: <b>2</b></span>
+          <span>Win Rate: <b>100.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+673.44</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:45</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.02</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:45:04</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">114.16</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">12 candles (~60m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">74.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">56.9</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.77</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Monday, Jun 15 2026</span>
+          <span class="day-stats">2 trades &middot; 0W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-2,891.87</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>21,501.11</b></span>
+          <span>Signals Scored: <b>5</b></span>
+          <span>Win Rate: <b>0.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK_2</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,452.79</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:10</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.22</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">2</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:10:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">93.50</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">5 candles (~25m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">89.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">79.7</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">58.93</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#ff8c0022;color:#ff8c00;border:1px solid #ff8c0044">STOCH_CROSS_0</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,439.08</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:05</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.18</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">2</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:05:00</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">92.56</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">9 candles (~45m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">76.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">73.9</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">58.74</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Friday, Jun 12 2026</span>
+          <span class="day-stats">1 trade &middot; 1W 0L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+9,833.17</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>—</b></span>
+          <span>Signals Scored: <b>—</b></span>
+          <span>Win Rate: <b>100.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-other">RUNNER_EOD</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+9,833.17</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:40:00</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.34</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">—</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">254.62</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">78.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">27.0</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Thursday, Jun 11 2026</span>
+          <span class="day-stats">4 trades &middot; 2W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-83.22</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>11,315.60</b></span>
+          <span>Signals Scored: <b>1</b></span>
+          <span>Win Rate: <b>50.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+642.15</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=43↓ | Stoch=83&gt;70 | CCI=95&gt;80 | WR=-17&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">10:56:37</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.06</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">10:56:37</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">94.18</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">87.008950963806%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">43.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,193.10</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">97.82</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.84</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-472.18</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=40↓ | Stoch=80&gt;70 | WR=-20&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:18:51</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.34</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:18:51</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">110.60</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">77.96565825571693%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">40.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,193.55</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">97.14</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.65</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-605.54</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↑ | ADX=44↑ | +DI=38&gt;12 | RSI15=58↑ | RSI5=61</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:09:03</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.18</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:09:03</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">93.86</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">76.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">58.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">44.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,300.60</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">94.93</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.50</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#00bcd422;color:#00bcd4;border:1px solid #00bcd444">TREND_RIDE</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+352.35</div>
+      </div>
+
+      <div class='trade-reason'>TrendRide↓ | ADX=36↑ | -DI=33&gt;12 | RSI15=32↓ | RSI5=32</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:51:35</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.74</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:51:35</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">98.32</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">83.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">32.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">36.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,187.05</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">91.29</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.52</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Wednesday, Jun 10 2026</span>
+          <span class="day-stats">3 trades &middot; 1W 2L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-801.53</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>12,552.69</b></span>
+          <span>Signals Scored: <b>3</b></span>
+          <span>Win Rate: <b>33.3%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-473.46</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=63↑ | Stoch=4&lt;30 | WR=-96&lt;-70</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:40:56</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.66</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:40:56</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">96.38</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">82.0359468622915%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">63.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,374.60</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">97.44</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.68</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#787b8622;color:#787b86;border:1px solid #787b8644">EMA_MOMENTUM</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-603.85</div>
+      </div>
+
+      <div class='trade-reason'>EMA9x21↑ | ADX=31 | RSI15=62↑ | Vol=0.0x</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:08:48</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.86</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:08:48</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">93.57</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">72.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">62.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">31.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,417.95</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">94.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.47</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+275.78</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=55↑ | RSI=44&lt;48 | Stoch=27&lt;30 | CCI=-98&lt;-80 | WR=-73&lt;-70</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:47:25</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">105.06</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:47:25</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">109.30</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">99.51401729861522%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">55.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,360.75</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">100.65</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.57</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Tuesday, Jun 09 2026</span>
+          <span class="day-stats">1 trade &middot; 1W 0L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+642.34</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>11,910.35</b></span>
+          <span>Signals Scored: <b>1</b></span>
+          <span>Win Rate: <b>100.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+642.34</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=42↓ | Stoch=86&gt;70 | WR=-14&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:43:18</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.54</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:43:18</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">93.66</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">80.47687287926497%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">42.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,160.65</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">97.33</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.79</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Monday, Jun 08 2026</span>
+          <span class="day-stats">1 trade &middot; 1W 0L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+1,910.35</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>11,910.35</b></span>
+          <span>Signals Scored: <b>—</b></span>
+          <span>Win Rate: <b>100.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-other">TGT</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+1,910.35</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=26↓ | TrendCont RSI bounce 26→32</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">09:37:51</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.96</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">09:37:51</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">73.57</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">73.18993299889826%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">26.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,184.80</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">96.78</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">52.00</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Friday, Jun 05 2026</span>
+          <span class="day-stats">4 trades &middot; 3W 1L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-pos">+455.58</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>10,455.58</b></span>
+          <span>Signals Scored: <b>0</b></span>
+          <span>Win Rate: <b>75.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+499.33</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=51 | RSI=30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:26:37</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:26:37</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">95.42</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">3 candles (~15m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">34.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">40.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,308.75</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.60</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,073.75</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:59:59</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:59:59</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.62</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">6 candles (~30m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">30.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">51.0</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.03</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+457.11</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:24:15</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.58</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:24:15</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">95.55</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">5 candles (~25m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">68.56103916226078%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">41.0</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.51</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+572.89</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=44 | RSI=50</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:39:53</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:39:53</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">93.89</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">50.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">44.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,352.45</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.64</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Thursday, Jun 04 2026</span>
+          <span class="day-stats">10 trades &middot; 5W 5L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-4,182.08</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>6,833.70</b></span>
+          <span>Signals Scored: <b>0</b></span>
+          <span>Win Rate: <b>50.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,069.82</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=47 | RSI=47</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">09:48:55</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">09:48:55</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.16</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">47.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">47.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,358.60</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.99</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,073.75</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=28 | RSI=65</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">10:30:13</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">10:30:13</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">86.58</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">65.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">28.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,443.60</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.03</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+306.73</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=58↑ | RSI=46&lt;48 | Stoch=14&lt;30 | WR=-86&lt;-70</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:19:02</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.32</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">03:21:06</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">109.04</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">90.30319727042568%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">58.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,385.85</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">88.67</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">47.78</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+224.86</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=20 | RSI=47</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:28:49</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:28:49</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">106.16</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">47.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">20.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,385.95</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.29</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,069.82</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=20 | RSI=51</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:36:32</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:36:32</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.16</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">51.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">20.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,401.85</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.99</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+157.25</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=20 | RSI=61</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">11:43:49</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">11:43:49</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">105.12</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">61.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">20.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,446.65</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.22</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+236.83</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=19 | RSI=53</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:01:14</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:01:14</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">106.74</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">53.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">19.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,418.45</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">50.34</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,069.82</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=20 | RSI=43</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:55:49</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:55:49</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.16</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">43.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">20.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,387.35</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.99</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-long">LONG</span>
+          <span class="badge exit-trail">TRAIL</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+249.21</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:57:30</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.45</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">03:30:23</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">106.28</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">4 candles (~20m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">66.92426488554189%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">56.0</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">47.78</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,073.75</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↓ | ADX=26 | RSI=33</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:19:57</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:19:57</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">119.62</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">33.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">26.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,330.80</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.03</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Wednesday, Jun 03 2026</span>
+          <span class="day-stats">6 trades &middot; 1W 5L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-3,143.89</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>12,089.53</b></span>
+          <span>Signals Scored: <b>1</b></span>
+          <span>Win Rate: <b>16.7%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-2,072.10</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=40↓ | Stoch=81&gt;70 | WR=-19&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:29:04</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.80</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:29:04</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">134.68</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">4 candles (~20m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">71.20161797885507%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">33.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,236.35</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">72.51</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.00</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-2,087.57</div>
+      </div>
+
+      
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">12:32:13</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.59</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">12:32:13</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">135.71</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">81.10362805361154%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">40.0</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.06</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-pos">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-other">TGT</span>
+        </div>
+        <div class="trade-pnl pnl-pos">+4,233.10</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=34 | RSI=59</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:48:36</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:48:36</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">167.82</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">1 candle (~5m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">59.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">34.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,323.25</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">54.30</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,069.82</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=38 | RSI=66</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">13:57:19</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">102.70</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">13:57:19</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">86.24</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">70.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">66.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">38.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,375.75</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.30</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">48.99</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,073.75</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=39 | RSI=67</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:12:37</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:12:37</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">86.58</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">2 candles (~10m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">67.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">39.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,394.25</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.03</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#9c27b022;color:#9c27b0;border:1px solid #9c27b044">SUPERTREND</span>
+          <span class="badge badge-long">LONG CE</span>
+          <span class="badge exit-sl">SL</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,073.75</div>
+      </div>
+
+      <div class='trade-reason'>ST flip↑ | ADX=50 | RSI=66</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">14:36:53</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">103.10</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">14:36:53</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">86.58</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">75.0%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">66.0</span></div><div class="metric"><span class="metric-label">ADX</span><span class="metric-val">50.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,423.65</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">87.63</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">49.03</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+    <details class="day-section" >
+      <summary class="day-summary">
+        <div class="day-left">
+          <span class="day-date">Tuesday, Jun 02 2026</span>
+          <span class="day-stats">1 trade &middot; 0W 1L</span>
+        </div>
+        <div class="day-right">
+          <span class="day-pnl pnl-neg">-1,077.66</span>
+        </div>
+      </summary>
+      <div class="day-body">
+        <div class="day-context">
+          <span>Opening Capital: <b>10,000.00</b></span>
+          <span>Signals Scored: <b>—</b></span>
+          <span>Win Rate: <b>0.0%</b></span>
+        </div>
+        
+    <div class="trade-card pnl-neg">
+      <div class="trade-header">
+        <div class="trade-badges">
+          <span class="badge" style="background:#2962ff22;color:#2962ff;border:1px solid #2962ff44">PULLBACK</span>
+          <span class="badge badge-short">SHORT PE</span>
+          <span class="badge exit-other">TIME</span>
+        </div>
+        <div class="trade-pnl pnl-neg">-1,077.66</div>
+      </div>
+
+      <div class='trade-reason'>15m_RSI=26↓ | Stoch=84&gt;70 | WR=-16&gt;-30</div>
+
+      <div class="trade-grid">
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Entry</span><span class="metric-val">10:22:04</span></div>
+          <div class="metric"><span class="metric-label">Entry ₹</span><span class="metric-val">104.16</span></div>
+          <div class="metric"><span class="metric-label">Lots</span><span class="metric-val">1</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Exit</span><span class="metric-val">10:22:04</span></div>
+          <div class="metric"><span class="metric-label">Exit ₹</span><span class="metric-val">120.74</span></div>
+          <div class="metric"><span class="metric-label">Hold</span><span class="metric-val">0 candles (~0m)</span></div>
+        </div>
+        <div class="trade-col">
+          <div class="metric"><span class="metric-label">Confidence</span><span class="metric-val">88.1989060420689%</span></div><div class="metric"><span class="metric-label">HTF RSI</span><span class="metric-val">26.0</span></div><div class="metric"><span class="metric-label">Nifty Spot</span><span class="metric-val">23,309.80</span></div><div class="metric"><span class="metric-label">SL Premium</span><span class="metric-val">72.91</span></div><div class="metric"><span class="metric-label">Costs</span><span class="metric-val">88.17</span></div>
+        </div>
+      </div>
+    </div>
+      </div>
+    </details>
+
+  <div class="footer">
+    DeltaForge &middot; Auto-generated from trades.db &middot; 2026-07-03 23:55 IST
+  </div>
+</div>
+</body>
+</html>

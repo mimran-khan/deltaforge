@@ -389,6 +389,16 @@ class DailyScheduler:
         if self.engine:
             self._archive_candles()
             self.engine.end_day()
+        self._generate_static_report()
+
+    def _generate_static_report(self):
+        """Regenerate the static HTML trade report in docs/index.html."""
+        try:
+            from reports.generate import generate
+            path = generate()
+            logger.info("Static report updated: {}", path)
+        except Exception as e:
+            logger.warning("Static report generation failed (non-fatal): {}", e)
 
     def _archive_candles(self):
         """Append today's candles to nifty_5m_combined.csv for future backtesting."""
