@@ -122,7 +122,7 @@ fi
 
 # Start the trading process in background
 log "Starting run_monitored.sh as fallback..."
-nohup ./run_monitored.sh >> logs/fallback_stdout.log 2>> logs/fallback_stderr.log &
+nohup ./scripts/run_monitored.sh >> logs/fallback_stdout.log 2>> logs/fallback_stderr.log &
 FALLBACK_PID=$!
 log "Fallback started (PID: $FALLBACK_PID)"
 

@@ -56,3 +56,29 @@ dashboard-mock/
 
 # Shell restart script
 .restart_scheduler.sh
+
+# Research / experimental backtest scripts (keep only core in backtest/)
+backtest/walk_forward_v*.py
+backtest/cdgr_*.py
+backtest/check_today.py
+backtest/comparison_study.py
+backtest/explore_novel.py
+backtest/filter_sweep.py
+backtest/parameter_sensitivity.py
+backtest/parameter_sweep.py
+backtest/pullback_backtest.py
+backtest/realistic_backtest.py
+backtest/regression_test.py
+backtest/replay_live_week.py
+backtest/run_6month.py
+backtest/runner_backtest.py
+backtest/strategy_isolation.py
+backtest/strategy_sweep.py
+backtest/structural_scenarios.py
+backtest/sweep_pullback.py
+backtest/test_adaptive.py
+backtest/test_wr_scenarios.py
+backtest/validate_improvements.py
+backtest/validation_three_periods.py
+backtest/winrate_analysis.py
+backtest/real_premium_backtest.py

@@ -172,7 +172,7 @@ install-autostart:  ## Install LaunchAgent + crontab for daily auto-start
 	@launchctl load $(HOME)/Library/LaunchAgents/com.deltaforge.daily.plist
 	@echo "✓ LaunchAgent installed (triggers 08:25 IST daily)"
 	@(crontab -l 2>/dev/null | grep -v healthcheck || true; \
-	  echo "*/15 8-15 * * 1-5 cd $(CURDIR) && ./healthcheck.sh") | crontab -
+	  echo "*/15 8-15 * * 1-5 cd $(CURDIR) && ./scripts/healthcheck.sh") | crontab -
 	@echo "✓ Healthcheck crontab installed (every 15 min, Mon-Fri 08:00-15:59)"
 
 # ─── Cleanup ─────────────────────────────────────────────────
