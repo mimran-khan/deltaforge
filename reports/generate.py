@@ -220,6 +220,72 @@ def _pnl_sign(pnl: float) -> str:
     return f"+{pnl:,.2f}" if pnl > 0 else f"{pnl:,.2f}"
 
 
+def _build_strat_cards(strategies: list[dict]) -> str:
+    cards = ""
+    for s in strategies[:5]:
+        pnl = s["pnl"]
+        cls = "pos" if pnl > 0 else "neg"
+        arrow = "&#9650;" if pnl > 0 else "&#9660;"
+        cards += (
+            f'      <div class="glass sc-card">'
+            f'<div class="sc-name">{strategy_name(s["name"])}</div>'
+            f'<div class="sc-pnl {cls}">{_pnl_sign(pnl)} <span class="kpi-arrow {"up" if pnl > 0 else "down"}">{arrow}</span></div>'
+            f'<div class="sc-meta">{s["trades"]} trades &middot; {s["wr"]}% WR</div>'
+            f'</div>\n'
+        )
+    return cards
+
+
+def _last_day_label(trades: list[dict]) -> str:
+    if not trades:
+        return "N/A"
+    last_date = max(t["date"] for t in trades)
+    try:
+        d = datetime.strptime(last_date, "%Y-%m-%d")
+        return d.strftime("%A, %b %d")
+    except (ValueError, TypeError):
+        return last_date
+
+
+def _last_day_stats(trades: list[dict]) -> str:
+    if not trades:
+        return "<span>No trades</span>"
+    last_date = max(t["date"] for t in trades)
+    day_trades = [t for t in trades if t["date"] == last_date]
+    pnl = sum(t.get("pnl", 0) for t in day_trades)
+    wins = sum(1 for t in day_trades if t.get("pnl", 0) > 0)
+    losses = len(day_trades) - wins
+    cls = "pos" if pnl > 0 else "neg"
+    arrow = "&#9650;" if pnl >= 0 else "&#9660;"
+    return (
+        f'<span class="ld-pnl {cls}">{_pnl_sign(pnl)} <span class="kpi-arrow {"up" if pnl >= 0 else "down"}">{arrow}</span></span>'
+        f'<span class="ld-detail">{len(day_trades)} trades &middot; {wins}W / {losses}L</span>'
+    )
+
+
+def _recent_trades_html(trades: list[dict]) -> str:
+    rows = ""
+    for t in trades[-5:][::-1]:
+        pnl = t.get("pnl", 0)
+        cls = "pos" if pnl > 0 else "neg"
+        arrow = "&#9650;" if pnl > 0 else "&#9660;"
+        time_str = ""
+        try:
+            dt = datetime.fromisoformat(t.get("entry_time", ""))
+            time_str = dt.strftime("%b %d, %H:%M")
+        except (ValueError, TypeError):
+            time_str = t.get("date", "")
+        rows += (
+            f'<div class="rt-row">'
+            f'<span class="rt-time">{time_str}</span>'
+            f'<span class="rt-strat">{strategy_name(t.get("strategy", ""))}</span>'
+            f'<span class="rt-dir">{t.get("direction", "")}</span>'
+            f'<span class="rt-pnl {cls}">{_pnl_sign(pnl)} <span class="kpi-arrow {"up" if pnl > 0 else "down"}">{arrow}</span></span>'
+            f'</div>\n'
+        )
+    return rows
+
+
 # ── HTML Generation ──────────────────────────────────────────
 
 def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
@@ -504,6 +570,31 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
 .panel{{display:none}}.panel.active{{display:block;animation:fadeUp 0.25s ease}}
 @keyframes fadeUp{{from{{opacity:0;transform:translateY(8px)}}to{{opacity:1;transform:translateY(0)}}}}
 
+/* Strategy cards row */
+.strat-cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}}
+.sc-card{{padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:4px}}
+.sc-name{{font-size:0.72rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}}
+.sc-pnl{{font-size:1.1rem;font-weight:700;font-family:var(--mono)}}
+.sc-meta{{font-size:0.65rem;color:var(--text4);font-family:var(--mono)}}
+
+/* Last day summary */
+.last-day{{padding:16px 24px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}}
+.ld-head{{font-size:0.78rem;font-weight:600;color:var(--text2)}}
+.ld-stats{{display:flex;align-items:center;gap:16px}}
+.ld-pnl{{font-size:1.1rem;font-weight:700;font-family:var(--mono)}}
+.ld-detail{{font-size:0.7rem;color:var(--text4);font-family:var(--mono)}}
+
+/* Recent trades strip */
+.recent-trades{{padding:20px;border-radius:14px;margin-top:20px}}
+.rt-list{{display:flex;flex-direction:column;gap:8px;margin-top:12px}}
+.rt-row{{display:grid;grid-template-columns:120px 1fr 60px 100px;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;font-family:var(--mono);transition:background 0.15s}}
+.rt-row:hover{{background:rgba(139,92,246,0.04)}}
+.rt-time{{color:var(--text3)}}
+.rt-strat{{color:var(--text);font-weight:500}}
+.rt-dir{{color:var(--text2);font-size:0.65rem;text-transform:uppercase}}
+.rt-pnl{{text-align:right;font-weight:600}}
+
+
 /* Chart containers */
 .chart-wrap{{margin-bottom:20px;padding:20px;overflow:hidden}}
 .chart-head{{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}}
@@ -594,6 +685,12 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
 
 /* Colors */
 .pos{{color:var(--green-l)}}.neg{{color:var(--red-l)}}
+.kpi-arrow{{display:inline-block;font-size:0.6em;margin-left:6px;vertical-align:middle}}
+.kpi-arrow.up{{color:var(--green-l)}}.kpi-arrow.down{{color:var(--red-l)}}
+.kpi-info{{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(139,92,246,0.5);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:rgba(139,92,246,0.8);cursor:help;transition:all 0.15s;font-family:var(--sans);font-style:italic;font-weight:700;background:rgba(139,92,246,0.06)}}
+.kpi-info:hover{{border-color:var(--accent);color:#fff;background:rgba(139,92,246,0.25)}}
+.kpi-info:hover .kpi-tip{{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}}
+.kpi-tip{{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(-4px);background:rgba(16,20,32,0.95);backdrop-filter:blur(12px);color:var(--text2);padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.68rem;font-family:var(--mono);font-style:normal;font-weight:400;white-space:nowrap;pointer-events:none;opacity:0;transition:all 0.2s;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4)}}
 
 /* Footer */
 .footer{{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:40px 32px 32px;border-top:1px solid var(--border)}}
@@ -630,9 +727,6 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
 .counter{{display:inline-block}}
 
 /* Tooltips */
-.tooltip{{position:relative}}
-.tooltip::after{{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) scale(0.9);background:rgba(0,0,0,0.9);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.68rem;font-family:var(--mono);white-space:nowrap;pointer-events:none;opacity:0;transition:all 0.15s;z-index:100}}
-.tooltip:hover::after{{opacity:1;transform:translateX(-50%) scale(1)}}
 
 /* Search */
 .search-wrap{{position:relative}}
@@ -728,13 +822,24 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
       <img src="data:image/jpeg;base64,{_bg_b64()}" alt="">
     </div>
     <div class="kpi-grid">
-      <div class="glass kpi animate-in {"hero" if overall["total_pnl"] >= 0 else "hero-neg"}" data-tip="Total realized P&amp;L"><div class="kpi-label">Net P&amp;L</div><div class="kpi-val counter" data-target="{overall["total_pnl"]:.0f}">{_pnl_sign(overall["total_pnl"])}</div><div class="kpi-sub">{overall["trading_days"]} days &middot; {_pnl_sign(overall["avg_pnl"])}/trade</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="{overall["wins"]} winners, {overall["losses"]} losers"><div class="kpi-label">Win Rate</div><div class="kpi-val">{overall["wr"]}%</div><div class="kpi-sub">{overall["wins"]}W / {overall["losses"]}L</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="Gross profit / Gross loss"><div class="kpi-label">Profit Factor</div><div class="kpi-val">{overall["profit_factor"]}</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="Current account value"><div class="kpi-label">Capital</div><div class="kpi-val counter" data-target="{overall["current_capital"]:.0f}">{overall["current_capital"]:,.0f}</div><div class="kpi-sub">peak {overall["peak_capital"]:,.0f}</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="Single best trade"><div class="kpi-label">Best Trade</div><div class="kpi-val pos">{overall["best"]:+,.0f}</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="Single worst trade"><div class="kpi-label">Worst Trade</div><div class="kpi-val neg">{overall["worst"]:+,.0f}</div></div>
-      <div class="glass kpi animate-in tooltip" data-tip="Peak to trough drawdown"><div class="kpi-label">Max Drawdown</div><div class="kpi-val neg">{overall["max_dd"]:.1f}%</div></div>
+      <div class="glass kpi animate-in {"hero" if overall["total_pnl"] >= 0 else "hero-neg"}"><div class="kpi-info">i<span class="kpi-tip">Total realized P&amp;L</span></div><div class="kpi-label">Net P&amp;L</div><div class="kpi-val counter" data-target="{overall["total_pnl"]:.0f}">{_pnl_sign(overall["total_pnl"])}<span class="kpi-arrow {"up" if overall["total_pnl"] >= 0 else "down"}">{"&#9650;" if overall["total_pnl"] >= 0 else "&#9660;"}</span></div><div class="kpi-sub">{overall["trading_days"]} days &middot; {_pnl_sign(overall["avg_pnl"])}/trade &middot; <span class="{"pos" if overall["total_pnl"] >= 0 else "neg"}">{overall["total_pnl"] / starting_cap * 100:+.1f}%</span></div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">{overall["wins"]} winners, {overall["losses"]} losers</span></div><div class="kpi-label">Win Rate</div><div class="kpi-val">{overall["wr"]}%<span class="kpi-arrow {"up" if overall["wr"] >= 50 else "down"}">{"&#9650;" if overall["wr"] >= 50 else "&#9660;"}</span></div><div class="kpi-sub">{overall["wins"]}W / {overall["losses"]}L</div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Gross profit / Gross loss</span></div><div class="kpi-label">Profit Factor</div><div class="kpi-val">{overall["profit_factor"]}<span class="kpi-arrow {"up" if overall["profit_factor"] >= 1 else "down"}">{"&#9650;" if overall["profit_factor"] >= 1 else "&#9660;"}</span></div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Current account value</span></div><div class="kpi-label">Capital</div><div class="kpi-val counter" data-target="{overall["current_capital"]:.0f}">{overall["current_capital"]:,.0f}<span class="kpi-arrow {"up" if overall["current_capital"] >= starting_cap else "down"}">{"&#9650;" if overall["current_capital"] >= starting_cap else "&#9660;"}</span></div><div class="kpi-sub">peak {overall["peak_capital"]:,.0f} &middot; <span class="{"pos" if overall["current_capital"] >= starting_cap else "neg"}">{(overall["current_capital"] - starting_cap) / starting_cap * 100:+.1f}%</span></div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Single best trade</span></div><div class="kpi-label">Best Trade</div><div class="kpi-val pos">{overall["best"]:+,.0f}<span class="kpi-arrow up">&#9650;</span></div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Single worst trade</span></div><div class="kpi-label">Worst Trade</div><div class="kpi-val neg">{overall["worst"]:+,.0f}<span class="kpi-arrow down">&#9660;</span></div></div>
+      <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Peak to trough drawdown</span></div><div class="kpi-label">Max Drawdown</div><div class="kpi-val neg">{overall["max_dd"]:.1f}%<span class="kpi-arrow down">&#9660;</span></div></div>
+    </div>
+
+    <!-- Strategy Performance Cards -->
+    <div class="strat-cards">
+{_build_strat_cards(overall["strategies"])}
+    </div>
+
+    <!-- Last Day Summary -->
+    <div class="last-day glass">
+      <div class="ld-head">Last Session &mdash; {_last_day_label(trades)}</div>
+      <div class="ld-stats">{_last_day_stats(trades)}</div>
     </div>
 
     <div class="glass chart-wrap">
@@ -745,6 +850,12 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
     <div class="glass chart-wrap">
       <div class="chart-head"><span class="chart-title">Daily P&amp;L</span><span class="chart-sub">{len(daily_bars)} sessions</span></div>
       <div class="chart-container chart-container-sm" id="pnl-chart"></div>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="glass recent-trades">
+      <div class="chart-head"><span class="chart-title">Recent Trades</span><span class="chart-sub">last 5</span></div>
+      <div class="rt-list">{_recent_trades_html(trades)}</div>
     </div>
   </div>
 
