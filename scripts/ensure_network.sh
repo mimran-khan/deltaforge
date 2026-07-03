@@ -1,6 +1,6 @@
 #!/bin/bash
 # Passive network check — does NOT power-cycle Wi-Fi or roam across saved networks.
-# Aggressive Wi-Fi management was disconnecting predatorroxy and blocking trading for hours.
+# Aggressive Wi-Fi management was disconnecting home Wi-Fi and blocking trading for hours.
 #
 # Behaviour:
 #   1. Internet OK          → exit 0 immediately (touch nothing)
@@ -9,7 +9,7 @@
 #   4. Cron/launchd       → check only, never call networksetup (AuthorizationCreate -60008)
 #
 # Env:
-#   DELTAFORGE_WIFI_SSID          — home SSID (default: predatorroxy)
+#   DELTAFORGE_WIFI_SSID          — home SSID (default: your-home-ssid)
 #   DELTAFORGE_NETWORK_WAIT_SEC   — max wait when on home SSID (default: 20)
 #   DELTAFORGE_NETWORK_LOG        — log file (default: logs/network.log)
 
@@ -21,7 +21,7 @@ export TZ="${TZ:-Asia/Kolkata}"
 
 LOG="${DELTAFORGE_NETWORK_LOG:-logs/network.log}"
 LOCK_DIR="${DELTAFORGE_NETWORK_LOCK:-/tmp/deltaforge-network.lock}"
-HOME_SSID="${DELTAFORGE_WIFI_SSID:-predatorroxy}"
+HOME_SSID="${DELTAFORGE_WIFI_SSID:-your-home-ssid}"
 MAX_WAIT="${DELTAFORGE_NETWORK_WAIT_SEC:-20}"
 
 mkdir -p "$(dirname "$LOG")"

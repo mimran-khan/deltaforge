@@ -158,7 +158,7 @@ if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] Network OK"
 elif [ -x "./scripts/ensure_network.sh" ]; then
   export DELTAFORGE_NETWORK_WAIT_SEC="${DELTAFORGE_NETWORK_WAIT_SEC:-20}"
-  export DELTAFORGE_WIFI_SSID="${DELTAFORGE_WIFI_SSID:-predatorroxy}"
+  export DELTAFORGE_WIFI_SSID="${DELTAFORGE_WIFI_SSID:-your-home-ssid}"
   ./scripts/ensure_network.sh || echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] WARNING: no internet — starting trade anyway"
 else
   echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] WARNING: no internet — starting trade anyway"
