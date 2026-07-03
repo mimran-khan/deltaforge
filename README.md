@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick Start</a> · <a href="#why-deltaforge">Why DeltaForge</a> · <a href="#features">Features</a> · <a href="#documentation">Docs</a> · <a href="DISCLAIMER.md">Disclaimer</a>
+  <a href="#quick-start">Quick Start</a> · <a href="#why-deltaforge">Why DeltaForge</a> · <a href="#features">Features</a> · <a href="#documentation">Docs</a> · <a href="https://mimran-khan.github.io/deltaforge/">📊 Live Dashboard</a> · <a href="DISCLAIMER.md">Disclaimer</a>
 </p>
 
 ---
@@ -224,6 +224,14 @@ All parameters live in [`config/settings.py`](config/settings.py) and are overri
 | [Risk Model & Kill Switch](docs/risk.md) | 9-gate system, drawdown tiers, real-time monitoring, kill switch |
 | [Dashboard & API](docs/dashboard.md) | REST endpoints, WebSocket, security configuration, alerts |
 | [Architecture & Design](docs/architecture.md) | Data flow, system components, project structure, design decisions |
+
+---
+
+## Live Performance Dashboard
+
+> **[📊 View Live Dashboard →](https://mimran-khan.github.io/deltaforge/)**
+
+Auto-generated trading report with interactive equity curves, calendar heatmaps, trade analytics, and strategy breakdowns. Deployed via GitHub Pages — updated with each push.
 
 ---
 
