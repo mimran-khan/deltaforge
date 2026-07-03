@@ -1,5 +1,4 @@
-<!-- Banner — replace with your own banner image -->
-<!-- <p align="center"><img src="docs/assets/banner.png" alt="DeltaForge" width="800"></p> -->
+<p align="center"><img src="docs/banner.jpg" alt="DeltaForge" width="100%"></p>
 
 <h1 align="center">DeltaForge</h1>
 
@@ -42,21 +41,6 @@ DeltaForge is an autonomous intraday options trading system for Nifty 50 on the 
 
 > **Disclaimer** — This is educational software, not financial advice. Options trading involves substantial risk of loss. See [DISCLAIMER.md](DISCLAIMER.md).
 
-<!-- TODO: Add screenshots when ready -->
-<!--
-<p align="center">
-  <table>
-    <tr>
-      <td align="center"><a href="docs/assets/dashboard.png"><img src="docs/assets/dashboard.png" width="400" alt="Dashboard"></a><br><strong>Real-time Dashboard</strong></td>
-      <td align="center"><a href="docs/assets/terminal.png"><img src="docs/assets/terminal.png" width="400" alt="Terminal"></a><br><strong>CLI Trading Session</strong></td>
-    </tr>
-    <tr>
-      <td align="center"><a href="docs/assets/slack.png"><img src="docs/assets/slack.png" width="400" alt="Slack Alerts"></a><br><strong>Slack Alerts</strong></td>
-      <td align="center"><a href="docs/assets/backtest.png"><img src="docs/assets/backtest.png" width="400" alt="Backtest"></a><br><strong>Backtest Results</strong></td>
-    </tr>
-  </table>
-</p>
--->
 
 ---
 
@@ -287,19 +271,5 @@ MIT — see [LICENSE](LICENSE). Full trading disclaimer in [DISCLAIMER.md](DISCL
 
 <p align="center"><strong>Your strategy deserves better than a spreadsheet and a prayer.</strong></p>
 
-<!-- Uncomment when repo is public -->
-<!--
-<p align="center">
-  <a href="https://star-history.com/#mimran-khan/deltaforge&Date">
-    <img src="https://api.star-history.com/svg?repos=mimran-khan/deltaforge&type=Date" alt="Star History Chart" width="600">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://repobeats.axiom.co">
-    <img src="https://repobeats.axiom.co/api/embed/YOUR_REPO_ID.svg" alt="Repobeats analytics" width="600">
-  </a>
-</p>
--->
 
 <p align="center">⭐ <strong>Star</strong> · 🔄 <strong>Share</strong> · 🤝 <strong>Contribute</strong></p>

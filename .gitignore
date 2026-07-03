@@ -1,5 +1,6 @@
 # Python
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -40,3 +41,18 @@ htmlcov/
 *.pem
 *.key
 credentials.json
+
+# Temporary analysis / scratch
+tmp/
+
+# Package manager lock (large, not needed for app)
+uv.lock
+
+# Old mock dashboard
+dashboard-mock/
+
+# Build artifacts
+*.egg-info/
+
+# Shell restart script
+.restart_scheduler.sh

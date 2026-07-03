@@ -1,5 +1,0 @@
-label,starting_capital,final_capital,total_pnl,return_pct,total_trades,wins,losses,win_rate,profit_factor,max_drawdown_pct,blocked_signals,profitable_days,loss_days
-BASELINE,10000,6119297.0,6109297.0,61093.0,345,175,170,50.7,3.89,32.3,0,55,39
-RSI70,10000,4810274.0,4800274.0,48002.7,257,89,168,34.6,3.43,36.6,26,47,46
-SLcd4,10000,4411661.0,4401661.0,44016.6,255,88,167,34.5,3.18,36.5,37,51,43
-RSI70+SLcd4,10000,3848874.0,3838874.0,38388.7,238,80,158,33.6,3.11,35.8,62,46,47

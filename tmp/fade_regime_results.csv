@@ -1,5 +1,0 @@
-label,final_capital,total_pnl,return_pct,total_trades,win_rate,profit_factor,max_drawdown_pct,blocked,fade_days
-BASELINE,2154405.0,2144405.0,21444.0,382,55.2,1.86,48.8,0,0
-FADE_REGIME,1647768.0,1637768.0,16377.7,333,52.9,1.7,56.2,84,97
-FADE_REGIME+SLcd6,1604159.0,1594159.0,15941.6,306,53.3,1.76,54.2,117,97
-SLcd6,2027432.0,2017432.0,20174.3,357,55.5,1.84,49.5,53,0
