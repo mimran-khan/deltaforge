@@ -56,6 +56,14 @@ EVENTS_FILE = DATA_DIR / "events.jsonl"
 CAPITAL_FILE = DATA_DIR / "capital.json"
 OUTPUT_FILE = BASE_DIR / "docs" / "index.html"
 BG_IMAGE = BASE_DIR / "docs" / "banner.jpg"
+HOLIDAYS_FILE = BASE_DIR / "config" / "holidays.json"
+
+
+def _load_holiday_dates() -> list[str]:
+    if HOLIDAYS_FILE.exists():
+        data = json.loads(HOLIDAYS_FILE.read_text())
+        return [h["date"] for h in data.get("holidays", [])]
+    return []
 
 
 # ── Data Loading ─────────────────────────────────────────────
@@ -452,6 +460,10 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
 /* Layout */
 .app{{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:24px 32px 48px}}
 .topbar{{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;margin-bottom:0;background:rgba(6,9,16,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);border-radius:0}}
+.refresh-counter{{font-size:0.72rem;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;white-space:nowrap}}
+.refresh-counter .rc-dot{{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}}
+.refresh-counter .rc-label{{opacity:0.7}}
+.refresh-counter .rc-time{{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}}
 
 /* Ticker */
 .ticker{{overflow:hidden;margin-bottom:0;padding:8px 0;background:rgba(6,9,16,0.9);border-bottom:1px solid var(--border);position:relative}}
@@ -698,6 +710,7 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
     <div class="topbar">
       <span class="logo">DeltaForge</span>
       <span class="meta"><span class="live-dot"></span>Paper Trading &middot; {now.strftime("%b %d, %Y")}</span>
+      <span class="refresh-counter" id="refresh-counter"></span>
     </div>
     <div class="ticker"><div class="ticker-track">{ticker_html}</div></div>
   </div>
@@ -833,6 +846,49 @@ const barData = {json.dumps(daily_bars)};
 const tradePnls = {json.dumps([round(t.get("pnl", 0), 0) for t in trades])};
 const ddData = {json.dumps(dd_data)};
 const wrData = {json.dumps(wr_data_clean)};
+
+// ── Next Refresh Counter ──
+(function() {{
+  const holidays = new Set({json.dumps(_load_holiday_dates())});
+  const EOD_HOUR = 15, EOD_MIN = 35;
+
+  function isTradingDay(d) {{
+    const day = d.getDay();
+    if (day === 0 || day === 6) return false;
+    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    return !holidays.has(ds);
+  }}
+
+  function nextRefresh() {{
+    const now = new Date();
+    const ist = new Date(now.toLocaleString('en-US', {{timeZone:'Asia/Kolkata'}}));
+    let target = new Date(ist);
+    target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
+    if (ist >= target || !isTradingDay(ist)) {{
+      target.setDate(target.getDate() + 1);
+      while (!isTradingDay(target)) target.setDate(target.getDate() + 1);
+      target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
+    }}
+    return target;
+  }}
+
+  function update() {{
+    const el = document.getElementById('refresh-counter');
+    if (!el) return;
+    const now = new Date();
+    const ist = new Date(now.toLocaleString('en-US', {{timeZone:'Asia/Kolkata'}}));
+    const target = nextRefresh();
+    const diff = target - ist;
+    if (diff <= 0) {{ el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Refreshing...</span>'; return; }}
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + s + 's';
+    el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Next refresh</span><span class="rc-time">' + timeStr + '</span>';
+  }}
+  update();
+  setInterval(update, 1000);
+}})();
 
 // ── TradingView Charts ──
 function initCharts() {{

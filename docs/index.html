@@ -47,6 +47,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:h
 /* Layout */
 .app{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:24px 32px 48px}
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;margin-bottom:0;background:rgba(6,9,16,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);border-radius:0}
+.refresh-counter{font-size:0.72rem;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.refresh-counter .rc-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.refresh-counter .rc-label{opacity:0.7}
+.refresh-counter .rc-time{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
 
 /* Ticker */
 .ticker{overflow:hidden;margin-bottom:0;padding:8px 0;background:rgba(6,9,16,0.9);border-bottom:1px solid var(--border);position:relative}
@@ -293,6 +297,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:h
     <div class="topbar">
       <span class="logo">DeltaForge</span>
       <span class="meta"><span class="live-dot"></span>Paper Trading &middot; Jul 04, 2026</span>
+      <span class="refresh-counter" id="refresh-counter"></span>
     </div>
     <div class="ticker"><div class="ticker-track"><div class="ticker-item"><span class="ti-name">Pullback Momentum</span><span class="ti-pnl neg">-50.06</span></div><div class="ticker-item"><span class="ti-name">ADX Breakout</span><span class="ti-pnl pos">+520.71</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl pos">+3,503.98</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl neg">-734.26</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-328.59</span></div><div class="ticker-item"><span class="ti-name">Pullback Momentum</span><span class="ti-pnl pos">+531.67</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-277.84</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-3,150.55</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl pos">+2,926.38</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-3,172.50</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl pos">+16,885.46</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-487.58</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-307.15</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-4,710.83</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl neg">-3,752.68</span></div><div class="ticker-item"><span class="ti-name">Pullback Momentum</span><span class="ti-pnl neg">-50.06</span></div><div class="ticker-item"><span class="ti-name">ADX Breakout</span><span class="ti-pnl pos">+520.71</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl pos">+3,503.98</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl neg">-734.26</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-328.59</span></div><div class="ticker-item"><span class="ti-name">Pullback Momentum</span><span class="ti-pnl pos">+531.67</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-277.84</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-3,150.55</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl pos">+2,926.38</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-3,172.50</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl pos">+16,885.46</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-487.58</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-307.15</span></div><div class="ticker-item"><span class="ti-name">Trend Ride</span><span class="ti-pnl neg">-4,710.83</span></div><div class="ticker-item"><span class="ti-name">Pullback Aggressive</span><span class="ti-pnl neg">-3,752.68</span></div></div></div>
   </div>
@@ -557,7 +562,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:h
       </a>
     </div>
     <div class="footer-copy">
-      Built with Python &middot; Powered by TradingView Lightweight Charts &middot; Generated Jul 04, 2026 at 01:32
+      Built with Python &middot; Powered by TradingView Lightweight Charts &middot; Generated Jul 04, 2026 at 03:33
     </div>
   </div>
 </footer>
@@ -568,6 +573,49 @@ const barData = [{"time": "2026-06-02", "value": -1077.66, "color": "rgba(239,68
 const tradePnls = [-1078.0, -2072.0, -2088.0, 4233.0, -1070.0, -1074.0, -1074.0, -1070.0, -1074.0, 307.0, 225.0, -1070.0, 157.0, 237.0, -1070.0, 249.0, -1074.0, 499.0, -1074.0, 457.0, 573.0, 1910.0, 642.0, -473.0, -604.0, 276.0, 642.0, -472.0, -606.0, 352.0, 9833.0, -1453.0, -1439.0, 673.0, -4216.0, -69.0, 3197.0, 1950.0, -73.0, -6884.0, -455.0, 4546.0, -563.0, -199.0, -10071.0, -295.0, 6811.0, -332.0, 5107.0, 12087.0, -479.0, 811.0, 639.0, 15768.0, 9099.0, -40.0, -50.0, 521.0, 3504.0, -734.0, -329.0, 532.0, -278.0, -3151.0, 2926.0, -3172.0, 16885.0, -488.0, -307.0, -4711.0, -3753.0];
 const ddData = [{"time": "2026-06-02", "value": -10.78}, {"time": "2026-06-03", "value": -42.22}, {"time": "2026-06-04", "value": -84.04}, {"time": "2026-06-05", "value": -79.48}, {"time": "2026-06-08", "value": -60.38}, {"time": "2026-06-09", "value": -53.95}, {"time": "2026-06-10", "value": -61.97}, {"time": "2026-06-11", "value": -62.8}, {"time": "2026-06-12", "value": 0.0}, {"time": "2026-06-15", "value": -21.34}, {"time": "2026-06-16", "value": -16.37}, {"time": "2026-06-18", "value": -47.48}, {"time": "2026-06-22", "value": 0.0}, {"time": "2026-06-23", "value": 0.0}, {"time": "2026-06-24", "value": 0.0}, {"time": "2026-06-25", "value": 0.0}, {"time": "2026-06-30", "value": 0.0}, {"time": "2026-07-01", "value": 0.0}, {"time": "2026-07-02", "value": 0.0}, {"time": "2026-07-03", "value": -8.59}];
 const wrData = [{"time": "2026-06-02", "value": 0.0}, {"time": "2026-06-03", "value": 14.3}, {"time": "2026-06-04", "value": 35.3}, {"time": "2026-06-05", "value": 42.9}, {"time": "2026-06-08", "value": 45.5}, {"time": "2026-06-09", "value": 47.8}, {"time": "2026-06-10", "value": 46.2}, {"time": "2026-06-11", "value": 46.7}, {"time": "2026-06-12", "value": 48.4}, {"time": "2026-06-15", "value": 45.5}, {"time": "2026-06-16", "value": 47.1}, {"time": "2026-06-18", "value": 45.7}, {"time": "2026-06-22", "value": 43.9}, {"time": "2026-06-23", "value": 43.2}, {"time": "2026-06-24", "value": 42.9}, {"time": "2026-06-25", "value": 45.3}, {"time": "2026-06-30", "value": 46.6}, {"time": "2026-07-01", "value": 46.0}, {"time": "2026-07-02", "value": 44.9}, {"time": "2026-07-03", "value": 43.7}];
+
+// ── Next Refresh Counter ──
+(function() {
+  const holidays = new Set(["2026-01-15", "2026-01-26", "2026-03-03", "2026-03-26", "2026-03-31", "2026-04-03", "2026-04-14", "2026-05-01", "2026-05-28", "2026-06-26", "2026-09-14", "2026-10-02", "2026-10-20", "2026-11-10", "2026-11-24", "2026-12-25"]);
+  const EOD_HOUR = 15, EOD_MIN = 35;
+
+  function isTradingDay(d) {
+    const day = d.getDay();
+    if (day === 0 || day === 6) return false;
+    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    return !holidays.has(ds);
+  }
+
+  function nextRefresh() {
+    const now = new Date();
+    const ist = new Date(now.toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+    let target = new Date(ist);
+    target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
+    if (ist >= target || !isTradingDay(ist)) {
+      target.setDate(target.getDate() + 1);
+      while (!isTradingDay(target)) target.setDate(target.getDate() + 1);
+      target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
+    }
+    return target;
+  }
+
+  function update() {
+    const el = document.getElementById('refresh-counter');
+    if (!el) return;
+    const now = new Date();
+    const ist = new Date(now.toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+    const target = nextRefresh();
+    const diff = target - ist;
+    if (diff <= 0) { el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Refreshing...</span>'; return; }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + s + 's';
+    el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Next refresh</span><span class="rc-time">' + timeStr + '</span>';
+  }
+  update();
+  setInterval(update, 1000);
+})();
 
 // ── TradingView Charts ──
 function initCharts() {
