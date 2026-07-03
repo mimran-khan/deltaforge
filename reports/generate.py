@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import calendar
 import json
+import os
 import sqlite3
 from collections import defaultdict
 from datetime import datetime, date
@@ -49,7 +50,7 @@ def _bg_b64() -> str:
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-PROD_DATA_DIR = Path.home() / "TradingAgent" / "data"
+PROD_DATA_DIR = Path(os.environ.get("DELTAFORGE_DATA_DIR", str(Path.home() / "TradingAgent" / "data")))
 DATA_DIR = PROD_DATA_DIR if PROD_DATA_DIR.exists() else BASE_DIR / "data"
 DB_PATH = DATA_DIR / "trades.db"
 EVENTS_FILE = DATA_DIR / "events.jsonl"
@@ -292,7 +293,7 @@ def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
     trade_events = match_events_to_trades(trades, events)
     day_events = load_day_events(events)
     overall = compute_overall(trades, capital)
-    starting_cap = capital.get("initial_capital") or capital.get("peak_capital") or 57402
+    starting_cap = capital.get("initial_capital") or capital.get("peak_capital") or 10000
     now = datetime.now(IST)
 
     # Build equity curve data — one point per day (end-of-day value)

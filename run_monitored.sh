@@ -16,7 +16,7 @@ if [ -x "./venv/bin/python" ]; then
 fi
 
 # ── Sync latest code from development repo ──
-DEV_REPO="${DELTAFORGE_DEV_REPO:-$HOME/Documents/TradingAgent}"
+DEV_REPO="${DELTAFORGE_DEV_REPO:-}"
 if [ -d "$DEV_REPO" ] && ls "$DEV_REPO/main.py" > /dev/null 2>&1; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] Syncing code from $DEV_REPO ..."
     rsync -a --exclude='venv/' --exclude='data/' --exclude='logs/' --exclude='.git/' \
