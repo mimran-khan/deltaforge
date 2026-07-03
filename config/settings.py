@@ -14,6 +14,17 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+# Homebrew Python on macOS often lacks a default CA bundle; certifi fixes Slack/API TLS.
+if not os.environ.get("SSL_CERT_FILE"):
+    try:
+        import certifi
+
+        _ca_bundle = certifi.where()
+        os.environ.setdefault("SSL_CERT_FILE", _ca_bundle)
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", _ca_bundle)
+    except ImportError:
+        pass
+
 
 # ═══════════════════════════════════════════════════════════════════
 #  BROKER: Angel One SmartAPI
@@ -39,6 +50,13 @@ SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "")
 TRADING_MODE = os.getenv("TRADING_MODE", "paper")  # "paper" or "live"
 
 # ═══════════════════════════════════════════════════════════════════
+#  MULTI-ASSET (Gold, Crude, Currency)
+#  When False, the existing Nifty-only engine runs unchanged.
+#  When True, the MultiAssetEngine runs alongside (separate process).
+# ═══════════════════════════════════════════════════════════════════
+MULTI_ASSET_ENABLED = os.getenv("MULTI_ASSET_ENABLED", "true").lower() in ("1", "true", "yes")
+
+# ═══════════════════════════════════════════════════════════════════
 #  DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
 DASHBOARD_HOST = os.getenv("DASHBOARD_HOST", "127.0.0.1")
@@ -49,7 +67,7 @@ DASHBOARD_API_TOKEN = os.getenv("DASHBOARD_API_TOKEN", "")
 # ═══════════════════════════════════════════════════════════════════
 #  INSTRUMENT SPECS (verify against NSE on startup)
 # ═══════════════════════════════════════════════════════════════════
-NIFTY_LOT_SIZE = 65            # updated Jan 2026 (was 75)
+NIFTY_LOT_SIZE = 65            # NSE revised Jan 2026 (was 75)
 BANKNIFTY_LOT_SIZE = 30
 NIFTY_EXPIRY_DAY = 1       # Tuesday = 1 (Monday=0, Sunday=6)
 NIFTY_INDEX_TOKEN = "99926000"
@@ -59,17 +77,21 @@ BANKNIFTY_INDEX_TOKEN = "99926009"
 #  CAPITAL & POSITION SIZING
 # ═══════════════════════════════════════════════════════════════════
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
+FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
-CAPITAL_PER_LOT = 6_000         # 1 lot per Rs 6,000
-MAX_LOTS_CAP = 20               # safety cap: never exceed 20 lots
+CAPITAL_PER_LOT = 3_000         # 1 lot per Rs 3,000 (aggressive compounding, validated)
+MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo daily
 
-CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "60"))
+CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "100"))
 COMPOUND_DAILY = True
 
-MAX_SIMULTANEOUS_POSITIONS = int(os.getenv("MAX_SIMULTANEOUS_POSITIONS", "2"))
-TRAIL_TRIGGER_PCT = float(os.getenv("TRAIL_TRIGGER_PCT", "12"))
-TRAIL_PCT = float(os.getenv("TRAIL_PCT", "8"))
+MAX_SIMULTANEOUS_POSITIONS = int(os.getenv("MAX_SIMULTANEOUS_POSITIONS", "3"))
+TRAIL_TRIGGER_PCT = float(os.getenv("TRAIL_TRIGGER_PCT", "5"))
+TRAIL_PCT = float(os.getenv("TRAIL_PCT", "2"))
 SCAN_WARMUP_BARS = int(os.getenv("SCAN_WARMUP_BARS", "50"))
+LATE_START_CATCHUP_ENABLED = os.getenv("LATE_START_CATCHUP_ENABLED", "true").lower() in ("1", "true", "yes")
+LATE_START_CATCHUP_MINUTES = int(os.getenv("LATE_START_CATCHUP_MINUTES", "15"))  # after ENTRY_START
+LATE_START_CATCHUP_DRY_RUN = os.getenv("LATE_START_CATCHUP_DRY_RUN", "true").lower() in ("1", "true", "yes")
 SHOCK_THRESHOLD_PCT = float(os.getenv("SHOCK_THRESHOLD_PCT", "1.5"))
 SHOCK_LOOKBACK_BARS = int(os.getenv("SHOCK_LOOKBACK_BARS", "3"))
 
@@ -82,7 +104,7 @@ MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "5"))
 MIN_CAPITAL_TO_TRADE = 3000     # halt if capital drops below this
 
 # -- Daily/weekly loss limits --
-DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "25"))
+DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "10"))
 DAILY_PROFIT_TARGET_PCT = float(os.getenv("DAILY_PROFIT_TARGET_PCT", "35"))  # stop entries after 35% daily gain
 WEEKLY_LOSS_LIMIT_PCT = float(os.getenv("WEEKLY_LOSS_LIMIT_PCT", "50"))
 
@@ -105,13 +127,13 @@ TREND_RUNNER_ADX_MIN = 38.0          # min ADX to activate runner on TGT hit (lo
 TREND_RUNNER_ADX_EXIT = 35.0         # exit runner when ADX drops below this
 TREND_RUNNER_TRAIL_PCT = 8.0         # trail 8% below peak premium in runner mode
 TREND_RUNNER_MAX_BARS = 12           # max extra bars in runner mode (1 hour)
-TREND_RUNNER_STRATEGIES = ["TREND_RIDE", "PULLBACK", "ADX_BREAKOUT", "STOCH_CROSS"]
+TREND_RUNNER_STRATEGIES = ["TREND_RIDE", "PULLBACK", "SUPERTREND", "STOCH_CROSS"]
 TREND_RUNNER_CUTOFF_TIME = "15:00"   # don't activate runner after this time (extended to capture late rallies)
 
 # ═══════════════════════════════════════════════════════════════════
 #  ADAPTIVE MODE (intra-day performance-based parameter modulation)
 # ═══════════════════════════════════════════════════════════════════
-ADAPTIVE_MODE_ENABLED = True
+ADAPTIVE_MODE_ENABLED = False   # optimizer: disabling adaptive = +2.3% geo daily (was throttling good signals)
 ADAPTIVE_AGGRESSIVE_PNL_PCT = 5.0    # promote to AGGRESSIVE above +5% daily
 ADAPTIVE_AGGRESSIVE_CONSEC_WINS = 2  # need 2+ consecutive wins
 ADAPTIVE_AGGRESSIVE_MIN_WR = 60.0    # need 60%+ win rate today
@@ -125,8 +147,9 @@ ADAPTIVE_HALT_LOSS_PCT = -10.0       # HALT below -10% daily
 # ═══════════════════════════════════════════════════════════════════
 #  PULLBACK ENGINE (replaces confluence engine as primary alpha)
 # ═══════════════════════════════════════════════════════════════════
-PULLBACK_MIN_CONFIDENCE = 50     # allow moderate-confidence signals
-PULLBACK_HOLD_CANDLES = 36       # max hold = 3 hours (36 × 5min)
+PULLBACK_MIN_CONFIDENCE = 68     # raised from 50 -- 70-79 band has 45.6% WR per analysis
+PULLBACK_HOLD_CANDLES = 20       # max hold ~100 min (strategy-specific overrides in backtest)
+PARTIAL_PROFIT_PCT = float(os.getenv("PARTIAL_PROFIT_PCT", "25"))
 PULLBACK_MAX_SIGNALS_PER_DAY = int(os.getenv("PULLBACK_MAX_SIGNALS_PER_DAY", "5"))
 
 # Legacy confluence (kept for monitoring/logging)
@@ -155,15 +178,15 @@ CONFLUENCE_CATEGORY_WEIGHTS = {
 
 # ATM option model (higher delta = better premium tracking)
 PREMIUM_BASE = 100.0            # ATM Nifty option premium (~Rs 100)
-PREMIUM_DELTA = 0.70            # ITM delta -- proven 82% WR
-PREMIUM_THETA_PER_CANDLE = 0.30 # ATM theta per 5-min candle
-PREMIUM_SL_PCT = float(os.getenv("PREMIUM_SL_PCT", "15"))
-PREMIUM_TARGET_PCT = float(os.getenv("PREMIUM_TARGET_PCT", "20"))  # 20% target -- 1.3:1 R:R ratio
+PREMIUM_DELTA = 0.80            # ITM delta -- optimizer: 0.80 > 0.70 (+2% geo daily)
+PREMIUM_THETA_PER_CANDLE = 0.15 # reduced theta -- optimizer: 0.15 halves decay pressure
+PREMIUM_SL_PCT = float(os.getenv("PREMIUM_SL_PCT", "3"))
+PREMIUM_TARGET_PCT = float(os.getenv("PREMIUM_TARGET_PCT", "50"))  # 50% target -- optimizer validated
 PREMIUM_TARGET_POINTS = 0       # point-based TP disabled (use pct)
 
 # Dynamic theta model: scales theta proportionally to Nifty level
 THETA_REFERENCE_LEVEL = 24_000  # Nifty level where theta = THETA_BASE
-THETA_BASE = 0.30               # base theta at reference level
+THETA_BASE = 0.15               # halved from 0.30 -- optimizer validated lower decay
 
 
 def get_scaled_theta(nifty_price: float) -> float:

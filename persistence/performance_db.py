@@ -51,24 +51,54 @@ class PerformanceDB:
             )
         """)
         self.conn.commit()
+        self._migrate_add_instrument_columns()
+
+    def _migrate_add_instrument_columns(self):
+        """Add instrument and exchange columns if they don't exist.
+
+        Backward compatible: existing rows default to NIFTY/NFO.
+        Safe to call repeatedly -- checks column existence first.
+        """
+        try:
+            cols = {
+                row[1]
+                for row in self.conn.execute("PRAGMA table_info(trades)").fetchall()
+            }
+            if "instrument" not in cols:
+                self.conn.execute(
+                    "ALTER TABLE trades ADD COLUMN instrument TEXT DEFAULT 'NIFTY'"
+                )
+                logger.info("DB migration: added 'instrument' column to trades")
+            if "exchange" not in cols:
+                self.conn.execute(
+                    "ALTER TABLE trades ADD COLUMN exchange TEXT DEFAULT 'NFO'"
+                )
+                logger.info("DB migration: added 'exchange' column to trades")
+            self.conn.commit()
+        except Exception as e:
+            logger.warning("DB migration check failed (non-fatal): {}", e)
 
     def record_trade(self, date: str, time: str, strategy: str,
                      direction: str, entry_price: float, exit_price: float,
                      pnl: float, confidence: float = 0, htf_rsi: float = 0,
                      adx: float = 0, hold_bars: int = 0,
                      exit_reason: str = "", lots: int = 1,
-                     capital_after: float = 0):
+                     capital_after: float = 0,
+                     instrument: str = "NIFTY",
+                     exchange: str = "NFO"):
         with self._lock:
             try:
                 self.conn.execute("""
                     INSERT INTO trades
                         (date, time, strategy, direction, confidence, htf_rsi,
                          adx, entry_price, exit_price, pnl, hold_bars,
-                         exit_reason, lots, capital_after)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         exit_reason, lots, capital_after,
+                         instrument, exchange)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (date, time, strategy, direction, confidence, htf_rsi,
                       adx, entry_price, exit_price, round(pnl, 2), hold_bars,
-                      exit_reason, lots, round(capital_after, 2)))
+                      exit_reason, lots, round(capital_after, 2),
+                      instrument, exchange))
                 self.conn.commit()
             except Exception as e:
                 logger.error("PerfDB record error: {}", e)

@@ -1,21 +1,23 @@
-"""DeltaForge trading engine -- DeltaForge V11 -- Multi-Strategy (76% WR, PF 2.62).
+"""DeltaForge trading engine -- Multi-Strategy Compound Growth.
 
 Architecture:
   WebSocket/LTP → CandleBuilder → [closed bar event] → MultiStrategyEngine
   → RiskEngine → PositionManager → Broker API
 
-Core strategy (walk-forward validated):
-  76% WR, PF 2.62, multi-strategy compound growth on Nifty 5m bars
+Core strategy (walk-forward validated, 100-day backtest):
+  56% WR, PF 2.44, multi-strategy compound growth on Nifty 5m bars
 
-Signal types:
+Active signal types:
   PULLBACK    = Pullback-in-Trend with HTF RSI + LTF oscillators
   STOCH_CROSS = Stochastic cross from extreme with EMA trend
-  SUPERTREND  = Supertrend flip with ADX confirmation
+  TREND_RIDE  = Strong-trend continuation with ADX confirmation
+  GAP_TRADE   = Gap-fade with mean reversion
+  CPR_RANGE/CPR_BREAKOUT = Central Pivot Range strategies
 
 Key principles:
   1. Score ONLY on closed 5-min bars (no look-ahead bias)
   2. Same MultiStrategyEngine as backtesting (zero production drift)
-  3. ATM options with 30% SL, strategy-specific targets, 24-candle max hold
+  3. ATM options with strategy-specific SL (8-15%), targets, 36-candle max hold
   4. Dynamic lot sizing for compounding
   5. Paper mode simulates full trade lifecycle with realistic costs
 """
@@ -39,7 +41,10 @@ from engine.broker import BrokerConnection
 from engine.candle_builder import CandleBuilder
 from engine.market_feed import MarketFeed
 from engine.multi_strategy_engine import MultiStrategyEngine, TradeSignal
-from engine.premium_model import create_premium_state, PremiumState, STRATEGY_SL_PCT
+from engine.premium_model import (
+    create_premium_state, PremiumState, STRATEGY_SL_PCT,
+    STRATEGY_HOLD_BARS, STRATEGY_TRAIL,
+)
 from execution.position_manager import PositionManager
 from persistence.performance_db import PerformanceDB
 from risk.risk_engine import RiskEngine, RiskDecision
@@ -70,6 +75,18 @@ MAX_HOLD = getattr(settings, 'PULLBACK_HOLD_CANDLES', 12)
 SL_PCT = getattr(settings, 'PREMIUM_SL_PCT', 50.0)
 
 
+def _compute_dte(now: datetime | None = None) -> float:
+    """Days to next Nifty weekly expiry (Tuesday)."""
+    if now is None:
+        now = datetime.now(IST)
+    today = now.date()
+    expiry_weekday = getattr(settings, 'NIFTY_EXPIRY_DAY', 1)  # Tuesday=1
+    days_ahead = (expiry_weekday - today.weekday()) % 7
+    if days_ahead == 0:
+        days_ahead = 0  # expiry today
+    return float(max(days_ahead, 0))
+
+
 @dataclass
 class PaperPosition:
     """Tracks a paper trade through its full lifecycle."""
@@ -90,6 +107,7 @@ class PaperPosition:
     pnl: float = 0
     runner_mode: bool = False
     runner_bars: int = 0
+    breakeven_applied: bool = False
 
 
 class TradingEngine:
@@ -105,6 +123,7 @@ class TradingEngine:
         self.capital = CapitalTracker()
         self.risk = RiskEngine(self.capital)
         self.candle_builder = CandleBuilder(interval_minutes=5)
+        self.candle_builder_1m = CandleBuilder(interval_minutes=1)
         self.strategy = MultiStrategyEngine()
         self.position_mgr: Optional[PositionManager] = None
         self.market_feed: Optional[MarketFeed] = None
@@ -171,6 +190,7 @@ class TradingEngine:
         self.risk.start_day()
         self.adaptive.reset()
         self.candle_builder.reset()
+        self.candle_builder_1m.reset()
         self.strategy.reset_day()
         # If broker is not active, try to set prev day data from local CSV
         if not self.broker.is_active:
@@ -289,7 +309,8 @@ class TradingEngine:
                 self._square_off_all("RISK_HALT")
             return
 
-        # Emergency-only check between bars (flash crash protection)
+        # Real-time protective checks on every tick (breakeven, trail, SL)
+        self._check_realtime_exits()
         self._check_emergency_sl()
 
         # Only score on NEW closed bar (event-driven)
@@ -321,20 +342,30 @@ class TradingEngine:
         except Exception as e:
             logger.debug("Precompute error: {}", e)
 
-        # Update positions AFTER precompute so Runner Mode sees fresh ADX
-        self._update_paper_positions()
-
-        if current_count < settings.SCAN_WARMUP_BARS:
-            return
-
         idx = len(completed) - 1
+        self._process_closed_bar(completed, idx, catch_up=False)
+
+    def _process_closed_bar(self, completed: pd.DataFrame, idx: int, *,
+                            catch_up: bool = False) -> bool:
+        """Score and optionally enter on one closed 5m bar. Returns True if trade entered."""
+        if len(completed) < settings.SCAN_WARMUP_BARS:
+            return False
+        if idx < settings.SCAN_WARMUP_BARS - 1:
+            return False
+
+        self._nifty_spot = float(completed["close"].iloc[idx])
+        time_str = completed.index[idx].strftime("%H:%M")
+
+        if catch_up and getattr(settings, 'LATE_START_CATCHUP_DRY_RUN', True):
+            return self._process_catchup_bar_dry(idx, time_str)
 
         atr_series = self._day_indicators.get('atr')
-        if atr_series is not None and len(atr_series) > 0:
-            last_atr = atr_series.iloc[-1]
+        if atr_series is not None and len(atr_series) > idx:
+            last_atr = atr_series.iloc[idx]
             if not (isinstance(last_atr, float) and np.isnan(last_atr)):
                 self._last_atr = float(last_atr)
-        time_str = completed.index[idx].strftime("%H:%M")
+
+        self._update_paper_positions(bar_time_str=time_str, adx_idx=idx)
 
         ap = self.adaptive.profile
         self.adaptive.on_bar()
@@ -354,7 +385,7 @@ class TradingEngine:
             self._day_signals_count += len(signals)
 
         if len(self._paper_positions) >= ap.max_simultaneous:
-            return
+            return False
 
         open_directions = {p.direction for p in self._paper_positions}
 
@@ -371,6 +402,8 @@ class TradingEngine:
                 signal_obj=signal,
                 lot_multiplier=ap.lot_multiplier,
                 min_confidence_override=ap.min_confidence,
+                bar_time_str=time_str,
+                signal_type=signal.signal_type,
             )
 
             if not decision.approved:
@@ -378,9 +411,44 @@ class TradingEngine:
 
             logger.info("SIGNAL: {} | {}", signal.summary(), time_str)
             self._enter_trade(signal, decision)
-            break  # one entry per bar
+            self._export_engine_state()
+            return True
 
         self._export_engine_state()
+        return False
+
+    def _process_catchup_bar_dry(self, idx: int, time_str: str) -> bool:
+        """Scan a missed bar for logging only — no trades, capital, or position changes."""
+        logger.info("Catch-up bar @ {} | Nifty={:.0f}", time_str, self._nifty_spot)
+        ap = self.adaptive.profile
+        signals = self.strategy.scan(
+            self._day_indicators, idx, time_str,
+            max_total_override=ap.max_trades_per_day,
+        )
+        return self._log_catchup_signals(signals, time_str, ap)
+
+    def _log_catchup_signals(self, signals: list, time_str: str,
+                             ap) -> bool:
+        """Log what would have traded during catch-up without side effects."""
+        if not signals:
+            return False
+        for signal in signals:
+            if signal.confidence < ap.min_confidence:
+                continue
+            decision = self.risk.evaluate(
+                confluence_score=signal.confidence,
+                direction=signal.direction,
+                signal_obj=signal,
+                lot_multiplier=ap.lot_multiplier,
+                min_confidence_override=ap.min_confidence,
+                bar_time_str=time_str,
+                signal_type=signal.signal_type,
+            )
+            if not decision.approved:
+                continue
+            logger.info("Catch-up (dry-run): {} | {}", signal.summary(), time_str)
+            return True
+        return False
 
     def _enter_trade(self, signal: TradeSignal, decision: RiskDecision):
         """Open a trade in paper or live mode."""
@@ -395,10 +463,11 @@ class TradingEngine:
                      decision: RiskDecision, option_type: str):
         """Full paper trade simulation with realistic costs."""
         ap = self.adaptive.profile
-        lots = max(1, int(decision.lots * ap.lot_multiplier))
+        lots = max(1, decision.lots)
         qty = lots * settings.NIFTY_LOT_SIZE
 
         theta = settings.get_scaled_theta(self._nifty_spot)
+        dte = _compute_dte()
         prem_state = create_premium_state(
             entry_index_price=self._nifty_spot,
             direction=signal.direction,
@@ -408,6 +477,7 @@ class TradingEngine:
             sl_pct=SL_PCT,
             confluence_score=signal.confidence,
             signal_type=signal.signal_type,
+            dte=dte,
         )
 
         if ap.target_multiplier != 1.0:
@@ -417,7 +487,8 @@ class TradingEngine:
             )
 
         entry_premium = prem_state.entry_premium + settings.SLIPPAGE_POINTS
-        eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, SL_PCT) * ap.sl_multiplier
+        vol_ratio = getattr(signal, 'vol_ratio', 1.0)
+        eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, SL_PCT) * ap.sl_multiplier * vol_ratio
         sl_premium = entry_premium * (1 - eff_sl / 100)
 
         pos = PaperPosition(
@@ -534,6 +605,27 @@ class TradingEngine:
         )
         self._save_paper_positions()
 
+    def _check_realtime_exits(self):
+        """Track peak premium between bar closes for trailing stop logic.
+
+        SL/target/trail exits happen on bar close only (in
+        _update_paper_positions) to match backtest behavior and avoid
+        intrabar whipsaw on synthetic premiums. Only peak tracking runs
+        intrabar so the bar-close trail calculation is accurate.
+
+        Emergency protection for flash crashes is handled separately
+        by _check_emergency_sl (2x ATR threshold).
+        """
+        if not self._paper_positions or not self._nifty_spot:
+            return
+
+        for pos in self._paper_positions:
+            cur_prem = pos.prem_state.current_premium(
+                self._nifty_spot, pos.candles_held)
+
+            if cur_prem > pos.peak_premium:
+                pos.peak_premium = cur_prem
+
     def _check_emergency_sl(self):
         """Emergency-only exit between bar closes -- flash crash protection.
 
@@ -568,13 +660,17 @@ class TradingEngine:
 
         for pos in closed:
             self._paper_positions.remove(pos)
+        if closed:
+            self._save_paper_positions()
 
-    def _update_paper_positions(self):
+    def _update_paper_positions(self, bar_time_str: str | None = None,
+                                adx_idx: int | None = None):
         """Update paper positions on new closed bar (candles_held per 5m bar)."""
         ap = self.adaptive.profile
         closed = []
-        adx_val = self._get_current_adx()
-        now_str = datetime.now(IST).strftime("%H:%M")
+        adx_val = self._get_current_adx(adx_idx)
+        now_str = (bar_time_str if bar_time_str is not None
+                   else datetime.now(IST).strftime("%H:%M"))
 
         for pos in self._paper_positions:
             pos.candles_held += 1
@@ -584,16 +680,24 @@ class TradingEngine:
             if cur_prem > pos.peak_premium:
                 pos.peak_premium = cur_prem
 
-            trail_floor = pos.prem_state.update_trail(
-                cur_prem,
-                trigger_pct=ap.trail_trigger_pct,
-                trail_pct=ap.trail_pct)
+            tiers = ap.trail_lock_tiers
+            peak_gain_pct = (pos.peak_premium - pos.entry_premium) / pos.entry_premium * 100
+            for i, tier_pct in enumerate(tiers):
+                if peak_gain_pct >= tier_pct:
+                    lock_price = pos.entry_premium if i == 0 else pos.entry_premium * (1 + tiers[i - 1] / 100)
+                    if lock_price > pos.sl_premium:
+                        pos.sl_premium = lock_price
+                        locked = (lock_price - pos.entry_premium) * pos.qty
+                        logger.info(
+                            "STEP LOCK (bar): {} {} | +{}% tier | SL->{:.1f} | locked Rs {:.0f}",
+                            pos.signal.signal_type, pos.signal.direction,
+                            tier_pct, pos.sl_premium, locked)
 
             exit_reason = None
             exit_prem_raw = cur_prem
 
             if cur_prem <= pos.sl_premium:
-                exit_reason = "SL"
+                exit_reason = "STEP_TRAIL" if pos.sl_premium >= pos.entry_premium else "SL"
                 exit_prem_raw = pos.sl_premium
             elif cur_prem >= pos.prem_state.target_premium:
                 if (not pos.runner_mode
@@ -624,12 +728,18 @@ class TradingEngine:
                     exit_reason = "RUNNER_TIME"
                     logger.info("RUNNER EXIT (max bars): held {} extra bars",
                                 pos.runner_bars)
-            elif trail_floor is not None and cur_prem <= trail_floor:
-                exit_reason = "TRAIL"
-                exit_prem_raw = trail_floor
-
-            if not exit_reason and pos.candles_held >= MAX_HOLD:
+            strat_name = pos.signal.signal_type if pos.signal else ""
+            max_hold = STRATEGY_HOLD_BARS.get(strat_name, MAX_HOLD)
+            if not exit_reason and pos.candles_held >= max_hold:
                 exit_reason = "TIME"
+
+            trail_cfg = STRATEGY_TRAIL.get(strat_name)
+            if not exit_reason and trail_cfg and pos.candles_held >= 2:
+                gain_pct = (pos.peak_premium - pos.entry_premium) / pos.entry_premium * 100
+                if gain_pct >= trail_cfg["trigger"]:
+                    trail_floor = pos.peak_premium * (1 - trail_cfg["pullback"] / 100)
+                    if cur_prem <= trail_floor:
+                        exit_reason = "STRATEGY_TRAIL"
 
             if exit_reason:
                 self._close_paper_position(pos, exit_prem_raw, exit_reason)
@@ -637,13 +747,16 @@ class TradingEngine:
 
         for pos in closed:
             self._paper_positions.remove(pos)
+        if closed:
+            self._save_paper_positions()
 
-    def _get_current_adx(self) -> float:
-        """Get the latest ADX value from precomputed day indicators."""
+    def _get_current_adx(self, idx: int | None = None) -> float:
+        """Get ADX at bar index (default: latest)."""
         try:
             adx_series = self._day_indicators.get('adx', pd.Series())
             if hasattr(adx_series, 'iloc') and len(adx_series) > 0:
-                val = float(adx_series.iloc[-1])
+                i = idx if idx is not None else len(adx_series) - 1
+                val = float(adx_series.iloc[i])
                 if not np.isnan(val):
                     return val
         except Exception:
@@ -711,6 +824,7 @@ class TradingEngine:
                     "prem_target": p.prem_state.target_premium,
                     "runner_mode": p.runner_mode,
                     "runner_bars": p.runner_bars,
+                    "breakeven_applied": p.breakeven_applied,
                     "date": datetime.now(IST).strftime("%Y-%m-%d"),
                 })
             tmp = PAPER_POSITIONS_FILE.with_suffix('.tmp')
@@ -771,6 +885,7 @@ class TradingEngine:
                     peak_premium=p_data.get("peak_premium", p_data["entry_premium"]),
                     runner_mode=p_data.get("runner_mode", False),
                     runner_bars=p_data.get("runner_bars", 0),
+                    breakeven_applied=p_data.get("breakeven_applied", False),
                 )
                 self._paper_positions.append(pos)
             if self._paper_positions:
@@ -876,10 +991,9 @@ class TradingEngine:
             self._nifty_spot = price
             self._last_price_time = datetime.now(IST)
             self._no_data_count = 0
-            self.candle_builder.on_tick(
-                price=price, volume=volume,
-                timestamp=datetime.now(IST),
-            )
+            ts = datetime.now(IST)
+            self.candle_builder.on_tick(price=price, volume=volume, timestamp=ts)
+            self.candle_builder_1m.on_tick(price=price, volume=volume, timestamp=ts)
         else:
             count = getattr(self, '_no_data_count', 0) + 1
             self._no_data_count = count
@@ -975,14 +1089,151 @@ class TradingEngine:
         except Exception as e:
             logger.warning("Failed to load prev day from CSV: {}", e)
 
+    def _is_late_start(self) -> bool:
+        """True if we're past ENTRY_START + grace — should replay today's missed bars."""
+        if not getattr(settings, 'LATE_START_CATCHUP_ENABLED', True):
+            return False
+        now = datetime.now(IST)
+        parts = settings.ENTRY_START.split(":")
+        entry_dt = now.replace(
+            hour=int(parts[0]), minute=int(parts[1]), second=0, microsecond=0)
+        grace = int(getattr(settings, 'LATE_START_CATCHUP_MINUTES', 15))
+        return now > entry_dt + pd.Timedelta(minutes=grace)
+
+    def _fetch_broker_5m_df(self) -> pd.DataFrame:
+        """Fetch recent 5m Nifty history from broker."""
+        if not self.broker.is_active:
+            return pd.DataFrame()
+        token = settings.NIFTY_INDEX_TOKEN
+        if self._nifty_token_info:
+            token = self._nifty_token_info.get("token", token)
+        now = datetime.now(IST)
+        from_date = (now - pd.Timedelta(days=3)).replace(
+            hour=9, minute=15, second=0, microsecond=0)
+        from_str = from_date.strftime("%Y-%m-%d %H:%M")
+        to_str = now.strftime("%Y-%m-%d %H:%M")
+        try:
+            raw = self.broker.get_historical(
+                exchange="NSE", token=token,
+                interval="FIVE_MINUTE",
+                from_date=from_str, to_date=to_str,
+            )
+            if not raw:
+                return pd.DataFrame()
+            return CandleBuilder.from_historical(raw)
+        except Exception as e:
+            logger.warning("Broker 5m fetch failed: {}", e)
+            return pd.DataFrame()
+
+    def _finalize_seed(self, bar_count: int, source: str) -> int:
+        """Common post-seed setup: indicators, prev-day HLC, chart seed."""
+        candles = self.candle_builder.get_candles()
+        if candles.empty:
+            return 0
+        self._nifty_spot = float(candles["close"].iloc[-1])
+        self._set_prev_day_from_candles(candles)
+        try:
+            completed = candles.iloc[:-1] if len(candles) > 1 else candles
+            self._day_indicators = self.strategy.precompute(completed)
+        except Exception:
+            pass
+        self._export_engine_state()
+        logger.info("Seeded {} bars from {} (Nifty={:.0f})",
+                    bar_count, source, self._nifty_spot)
+        self._seed_1m_historical()
+        return bar_count
+
+    def catch_up_missed_bars(self) -> int:
+        """Replay today's completed 5m bars when starting late (no wait for next poll)."""
+        if not self._is_late_start():
+            return 0
+
+        candles = self.candle_builder.get_candles()
+        if candles.empty or len(candles) < 2:
+            self._prev_candle_count = len(candles)
+            return 0
+
+        completed = candles.iloc[:-1]
+        today = datetime.now(IST).date()
+        today_idx = [i for i, t in enumerate(completed.index) if t.date() == today]
+        if not today_idx:
+            logger.warning("Late-start catch-up: no today bars in seeded data")
+            self._prev_candle_count = len(candles)
+            return 0
+
+        start_i = max(today_idx[0], settings.SCAN_WARMUP_BARS - 1)
+        end_i = today_idx[-1]
+        if start_i > end_i:
+            self._prev_candle_count = len(candles)
+            return 0
+
+        n_bars = end_i - start_i + 1
+        logger.info(
+            "Late-start catch-up: replaying {} bars ({} → {})",
+            n_bars,
+            completed.index[start_i].strftime("%H:%M"),
+            completed.index[end_i].strftime("%H:%M"),
+        )
+
+        try:
+            self._day_indicators = self.strategy.precompute(completed)
+        except Exception as e:
+            logger.warning("Catch-up precompute failed: {}", e)
+            self._prev_candle_count = len(candles)
+            return 0
+
+        dry_run = getattr(settings, 'LATE_START_CATCHUP_DRY_RUN', True)
+        self._catchup_dry_run = dry_run
+        entries = 0
+        try:
+            for idx in range(start_i, end_i + 1):
+                if self._process_closed_bar(completed, idx, catch_up=True):
+                    entries += 1
+        finally:
+            self._catchup_dry_run = False
+
+        self._prev_candle_count = len(candles)
+        self._export_engine_state()
+        if dry_run:
+            logger.info(
+                "Catch-up done (dry-run): {} bars scanned, {} would-have signals",
+                n_bars, entries,
+            )
+        else:
+            logger.info("Catch-up done: {} bars replayed, {} entries", n_bars, entries)
+        return n_bars
+
     def seed_historical_candles(self):
         """Pre-seed candle builder with recent historical 5m bars.
 
         Priority: local disk cache first, then broker API as fallback.
-        This ensures HTF indicators (15m RSI etc.) have enough data
-        to produce valid values from the first tick.
+        On late start, always refresh today's bars from broker and replay them.
         """
+        late = self._is_late_start()
         disk_count = self.candle_builder.load_from_disk()
+
+        if late and self.broker.is_active:
+            broker_df = self._fetch_broker_5m_df()
+            if not broker_df.empty:
+                if disk_count > 0 and not self.candle_builder.candles.empty:
+                    disk_df = self.candle_builder.candles
+                    today = datetime.now(IST).date()
+                    prior = disk_df[disk_df.index.map(lambda t: t.date() < today)]
+                    today_broker = broker_df[broker_df.index.map(lambda t: t.date() >= today)]
+                    if prior.index.tz is None and today_broker.index.tz is not None:
+                        prior.index = prior.index.tz_localize(today_broker.index.tz)
+                    elif prior.index.tz is not None and today_broker.index.tz is None:
+                        today_broker.index = today_broker.index.tz_localize(prior.index.tz)
+                    merged = pd.concat([prior, today_broker])
+                    merged = merged[~merged.index.duplicated(keep='last')].sort_index()
+                    self.candle_builder.seed(merged)
+                    source = "broker+disk (late start)"
+                else:
+                    self.candle_builder.seed(broker_df)
+                    source = "broker (late start)"
+                count = len(self.candle_builder.get_candles())
+                return self._finalize_seed(count, source)
+
         if disk_count >= settings.SCAN_WARMUP_BARS:
             candles = self.candle_builder.get_candles()
             self._nifty_spot = float(candles["close"].iloc[-1])
@@ -995,58 +1246,60 @@ class TradingEngine:
             self._export_engine_state()
             logger.info("Seeded from disk cache: {} bars (Nifty={:.0f})",
                         disk_count, self._nifty_spot)
+            self._seed_1m_historical()
             return disk_count
 
         if not self.broker.is_active:
             logger.warning("Broker not active -- cannot seed historical candles")
             return disk_count
 
+        hist_df = self._fetch_broker_5m_df()
+        if hist_df.empty:
+            logger.info("No historical data returned for seeding")
+            return 0
+
+        self.candle_builder.seed(hist_df)
+        self._nifty_spot = float(hist_df["close"].iloc[-1])
+        self._prev_candle_count = len(hist_df)
+        self._set_prev_day_from_candles(hist_df)
+        logger.info("Seeded {} historical candles (Nifty={:.0f})",
+                    len(hist_df), self._nifty_spot)
+        try:
+            self._day_indicators = self.strategy.precompute(hist_df)
+        except Exception:
+            pass
+        self._export_engine_state()
+        self._seed_1m_historical()
+        return len(hist_df)
+
+    def _seed_1m_historical(self):
+        """Seed 1-minute chart candles for dashboard (does not affect strategy)."""
+        if not self.broker.is_active:
+            return 0
         token = settings.NIFTY_INDEX_TOKEN
         if self._nifty_token_info:
             token = self._nifty_token_info.get("token", token)
-
         now = datetime.now(IST)
-        from_date = (now - pd.Timedelta(days=3)).replace(
+        from_date = (now - pd.Timedelta(days=1)).replace(
             hour=9, minute=15, second=0, microsecond=0)
         from_str = from_date.strftime("%Y-%m-%d %H:%M")
         to_str = now.strftime("%Y-%m-%d %H:%M")
-
         try:
             raw = self.broker.get_historical(
                 exchange="NSE", token=token,
-                interval="FIVE_MINUTE",
+                interval="ONE_MINUTE",
                 from_date=from_str, to_date=to_str,
             )
             if not raw:
-                logger.info("No historical data returned for seeding")
                 return 0
-
-            from engine.candle_builder import CandleBuilder
             hist_df = CandleBuilder.from_historical(raw)
-
             if hist_df.empty:
                 return 0
-
-            self.candle_builder.seed(hist_df)
-            self._nifty_spot = float(hist_df["close"].iloc[-1])
-            self._prev_candle_count = len(hist_df)
-
-            # Extract previous day HLC for CPR/Gap strategies
-            self._set_prev_day_from_candles(hist_df)
-
-            logger.info("Seeded {} historical candles (Nifty={:.0f})",
-                        len(hist_df), self._nifty_spot)
-
-            try:
-                self._day_indicators = self.strategy.precompute(hist_df)
-            except Exception:
-                pass
-            self._export_engine_state()
-
+            self.candle_builder_1m.seed(hist_df)
+            logger.info("Seeded {} 1-minute chart candles", len(hist_df))
             return len(hist_df)
-
         except Exception as e:
-            logger.warning("Historical candle seeding failed: {}", e)
+            logger.debug("1m chart seed skipped: {}", e)
             return 0
 
     def _run_selftest(self) -> bool:
@@ -1140,6 +1393,14 @@ class TradingEngine:
 
         self.capital.save()
 
+        bak = settings.CAPITAL_FILE.with_suffix('.bak')
+        try:
+            import shutil
+            shutil.copy2(str(settings.CAPITAL_FILE), str(bak))
+            logger.info("EOD capital backup written: Rs {:.0f}", self.capital.current_capital)
+        except Exception as e:
+            logger.warning("EOD capital backup failed: {}", e)
+
         state_file = Path(settings.DATA_DIR) / "engine_state.json"
         if state_file.exists():
             try:
@@ -1150,51 +1411,69 @@ class TradingEngine:
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Failed to update engine state on end_day: {}", exc)
 
+    def _build_candle_rows(
+        self,
+        candles: pd.DataFrame,
+        ind: dict,
+        window: int = 120,
+        include_indicators: bool = True,
+    ) -> list[dict]:
+        """Serialize recent OHLCV bars for dashboard charts."""
+        if candles is None or candles.empty:
+            return []
+        num = len(candles)
+        bar_window = min(num, window)
+        rows: list[dict] = []
+
+        for i in range(num - bar_window, num):
+            def _v(key, default=None):
+                if not include_indicators:
+                    return default
+                s = ind.get(key)
+                if s is None:
+                    return default
+                try:
+                    val = float(s.iloc[i]) if i < len(s) else default
+                    return round(val, 2) if val == val else default
+                except Exception:
+                    return default
+
+            idx = candles.index[i]
+            t = idx.strftime("%H:%M") if hasattr(idx, "strftime") else str(i)
+            rows.append({
+                "n": i + 1,
+                "t": t,
+                "o": round(float(candles["open"].iloc[i]), 2),
+                "h": round(float(candles["high"].iloc[i]), 2),
+                "l": round(float(candles["low"].iloc[i]), 2),
+                "c": round(float(candles["close"].iloc[i]), 2),
+                "v": int(candles["volume"].iloc[i]) if "volume" in candles else 0,
+                "rsi5": _v("rsi_5m", 50),
+                "rsi15": _v("rsi_15m", 50),
+                "stoch_k": _v("stoch_k", 50),
+                "cci": _v("cci", 0),
+                "willr": _v("willr", -50),
+                "ema9": _v("ema_9"),
+                "ema20": _v("ema_20"),
+                "vwap": _v("vwap"),
+                "bb_pctb": _v("bb_pctb"),
+                "adx": _v("adx", 0),
+                "atr": _v("atr"),
+                "st_dir": _v("supertrend_dir", 0),
+                "st_fast_dir": _v("supertrend_fast_dir", 0),
+            })
+        return rows
+
     def _export_engine_state(self):
         """Write engine state to disk for dashboard consumption."""
         try:
             candles = self.candle_builder.get_candles()
+            candles_1m = self.candle_builder_1m.get_candles()
             num_candles = len(candles)
 
-            # Build per-bar indicator snapshot (last 30 bars)
-            bar_window = min(num_candles, 30)
-            candle_rows = []
             ind = self._day_indicators or {}
-
-            for i in range(num_candles - bar_window, num_candles):
-                def _v(key, default=None):
-                    s = ind.get(key)
-                    if s is None:
-                        return default
-                    try:
-                        val = float(s.iloc[i]) if i < len(s) else default
-                        return round(val, 2) if val == val else default  # NaN guard
-                    except Exception:
-                        return default
-
-                row = {
-                    "n": i + 1,
-                    "t": candles.index[i].strftime("%H:%M") if hasattr(candles.index[i], "strftime") else str(i),
-                    "o": round(float(candles["open"].iloc[i]), 2),
-                    "h": round(float(candles["high"].iloc[i]), 2),
-                    "l": round(float(candles["low"].iloc[i]), 2),
-                    "c": round(float(candles["close"].iloc[i]), 2),
-                    "v": int(candles["volume"].iloc[i]) if "volume" in candles else 0,
-                    "rsi5": _v("rsi_5m", 50),
-                    "rsi15": _v("rsi_15m", 50),
-                    "stoch_k": _v("stoch_k", 50),
-                    "cci": _v("cci", 0),
-                    "willr": _v("willr", -50),
-                    "ema9": _v("ema_9"),
-                    "ema20": _v("ema_20"),
-                    "vwap": _v("vwap"),
-                    "bb_pctb": _v("bb_pctb"),
-                    "adx": _v("adx", 0),
-                    "atr": _v("atr"),
-                    "st_dir": _v("supertrend_dir", 0),
-                    "st_fast_dir": _v("supertrend_fast_dir", 0),
-                }
-                candle_rows.append(row)
+            candle_rows = self._build_candle_rows(candles, ind, window=120)
+            candle_rows_1m = self._build_candle_rows(candles_1m, ind={}, window=120, include_indicators=False)
 
             # Open positions
             positions = []
@@ -1223,6 +1502,7 @@ class TradingEngine:
                 "candle_count": num_candles,
                 "positions": positions,
                 "candles": candle_rows,
+                "candles_1m": candle_rows_1m,
                 "running": self._running,
                 "signals_today": self._day_signals_count,
             }

@@ -113,14 +113,16 @@ Most retail options tools are either overpriced terminals you can't customize, o
 
 | **Feature** | **Description** |
 |---|---|
-| 🧠 **5 Strategy Engine** | Stochastic Cross, Pullback-in-Trend, Supertrend Flip, VWAP Bias, RSI Mean Reversion — all run in parallel, best signal wins ([details](docs/strategy.md)) |
-| 🛡️ **9-Gate Risk Filter** | Capital floor, daily/weekly loss limits, drawdown tiers, VIX gate, consecutive-loss brake, entry window — every gate must pass ([details](docs/risk.md)) |
+| 🧠 **Multi-Strategy Engine** | Trend Ride, Pullback-in-Trend, Supertrend Flip, Stochastic Cross — all run in parallel with regime-aware confidence scoring |
+| 🌐 **Multi-Asset Trading** | Nifty 50 options (NSE) + MCX Crude Oil Mini + CDS USDINR futures — each with independent risk pools |
+| 🛡️ **Adaptive Risk System** | Daily loss limits (10%), consecutive-loss brakes, drawdown tiers, adaptive mode that adjusts confidence/lots in real-time |
 | 🔴 **Kill Switch** | Independent watchdog process. Halts trading on breach, manual override via CLI or dashboard. Works even if the main engine hangs. |
-| 📈 **Compound Sizing** | 1 lot per ₹6,000 of deployable capital. Full size below 20% drawdown, half at 20–35%, halt above 35%. No manual lot math. |
-| 📊 **Live Dashboard** | FastAPI + WebSocket — capital, trades, risk status, halt toggle. All at `localhost:8900` ([details](docs/dashboard.md)) |
+| 📈 **Compound Sizing** | Scales lots with capital growth. Position sizing adapts to equity curve with configurable per-lot capital allocation. |
+| 📊 **Live Dashboard** | FastAPI + WebSocket — capital, trades, risk status, halt toggle. All at `localhost:8900` |
 | 💬 **Instant Alerts** | Slack (recommended), iMessage (macOS), or Telegram — entries, exits, errors, end-of-day P&L reports |
 | 🔄 **Paper ↔ Live Parity** | Identical code path across backtest, paper, and live. If it works in paper, it works in production. Zero divergence. |
-| 📉 **Walk-Forward Backtest** | Run 30+ days of historical data through the exact same engine. Realistic costs (brokerage + STT + slippage). |
+| 📉 **Walk-Forward Backtest** | 100+ day replays with production engine. Realistic costs (brokerage + STT + slippage). Compound lot sizing. |
+| ⏰ **Automated Scheduling** | macOS launchd agent for daily auto-start, code sync, health monitoring, and session management |
 
 ---
 
@@ -130,12 +132,14 @@ Most retail options tools are either overpriced terminals you can't customize, o
 graph LR
     A["📡 Angel One WebSocket"] --> B["🕯 CandleBuilder"]
     B --> C["🧠 MultiStrategyEngine"]
-    C --> D{"🛡️ RiskEngine\n9 gates"}
+    C --> D{"🛡️ RiskEngine + AdaptiveMode"}
     D -->|"✅ pass"| E["💰 PositionManager"]
     D -->|"❌ reject"| F(("Skip"))
     E --> G["📊 Dashboard"]
     E --> H["💬 Alerts"]
     I["🔴 Kill Switch"] -.->|"halt"| D
+    J["📡 Futures Feed"] --> K["🌐 MultiAssetEngine"]
+    K --> D
 ```
 
 ---
@@ -185,6 +189,10 @@ ANGEL_TOTP_SECRET=your_totp_secret
 TRADING_MODE=paper
 STARTING_CAPITAL=10000
 
+# Risk Management
+DAILY_LOSS_LIMIT_PCT=10          # halt after 10% daily loss
+CAPITAL_PER_LOT=3000             # lot sizing aggressiveness
+
 # Alerts — choose: "slack", "imessage", or "telegram"
 ALERT_METHOD=slack
 SLACK_BOT_TOKEN=xoxb-your-token
@@ -223,8 +231,8 @@ All parameters live in [`config/settings.py`](config/settings.py) and are overri
 
 | Timeline | Milestone |
 |---|---|
-| **Shipped** | 5-strategy engine, 9-gate risk, paper/live parity, Slack/iMessage/Telegram alerts, FastAPI dashboard, walk-forward backtest, compound sizing |
-| **Next** | BankNifty support, multi-index trading, strategy marketplace |
+| **Shipped** | Multi-strategy engine, adaptive risk system, multi-asset (Nifty + MCX + CDS), compound sizing, automated daily scheduling, walk-forward backtesting, Slack/iMessage/Telegram alerts, FastAPI dashboard |
+| **Next** | BankNifty support, strategy marketplace, ML-based regime detection |
 | **Future** | Mobile companion alerts, cloud sync, community strategies, broker-agnostic execution |
 
 ---

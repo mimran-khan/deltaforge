@@ -40,43 +40,47 @@ class AdaptiveProfile:
     lot_multiplier: float
     sl_multiplier: float
     target_multiplier: float
-    trail_trigger_pct: float
-    trail_pct: float
+    trail_lock_tiers: tuple
+    trail_trigger_pct: float = 12.0
+    trail_pct: float = 8.0
 
 
 _PROFILES = {
     Mode.AGGRESSIVE: AdaptiveProfile(
         mode=Mode.AGGRESSIVE,
-        min_confidence=60,
+        min_confidence=68,
         max_trades_per_day=10,
         max_simultaneous=2,
         lot_multiplier=1.0,
         sl_multiplier=1.0,
         target_multiplier=1.3,
-        trail_trigger_pct=12.0,
+        trail_lock_tiers=(10, 14, 18, 22, 26, 30),
+        trail_trigger_pct=10.0,
         trail_pct=6.0,
     ),
     Mode.NORMAL: AdaptiveProfile(
         mode=Mode.NORMAL,
-        min_confidence=65,
+        min_confidence=72,
         max_trades_per_day=8,
         max_simultaneous=2,
         lot_multiplier=1.0,
         sl_multiplier=1.0,
         target_multiplier=1.0,
+        trail_lock_tiers=(10, 14, 18, 22, 26, 30),
         trail_trigger_pct=12.0,
         trail_pct=8.0,
     ),
     Mode.DEFENSIVE: AdaptiveProfile(
         mode=Mode.DEFENSIVE,
-        min_confidence=75,
+        min_confidence=78,
         max_trades_per_day=4,
         max_simultaneous=1,
         lot_multiplier=0.5,
         sl_multiplier=0.7,
         target_multiplier=0.8,
+        trail_lock_tiers=(7, 10, 13, 16, 19, 22),
         trail_trigger_pct=8.0,
-        trail_pct=4.0,
+        trail_pct=5.0,
     ),
     Mode.HALT: AdaptiveProfile(
         mode=Mode.HALT,
@@ -86,8 +90,9 @@ _PROFILES = {
         lot_multiplier=0.0,
         sl_multiplier=1.0,
         target_multiplier=1.0,
-        trail_trigger_pct=10.0,
-        trail_pct=5.0,
+        trail_lock_tiers=(4, 6, 8, 10, 12, 14, 16),
+        trail_trigger_pct=12.0,
+        trail_pct=8.0,
     ),
 }
 

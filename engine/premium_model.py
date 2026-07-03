@@ -22,6 +22,7 @@ class PremiumState:
     direction: str  # "LONG" or "SHORT"
     sl_premium: float
     target_premium: float
+    dte: float = 3.0  # days to expiry at entry
 
     # Trailing stop state
     peak_premium: float = 0.0
@@ -32,17 +33,40 @@ class PremiumState:
 
     def current_premium(self, current_index_price: float,
                          candles_elapsed: int) -> float:
-        """Calculate current premium deterministically from index move + theta."""
+        """Calculate current premium with DTE-aware gamma and theta.
+
+        Near expiry (DTE <= 1): delta is amplified (gamma effect) and
+        theta decay accelerates (sqrt model).
+        """
         if self.direction == "LONG":
             index_move = current_index_price - self.entry_index_price
         else:
             index_move = self.entry_index_price - current_index_price
 
-        premium_from_delta = index_move * self.delta
-        time_decay = candles_elapsed * self.theta_per_candle
+        effective_delta = self.delta
+        dte_now = max(0.1, self.dte - candles_elapsed / 75.0)  # ~75 bars/day
+        if dte_now <= 1.0:
+            effective_delta = min(self.delta * 1.3, 0.95)
+        elif dte_now <= 2.0:
+            effective_delta = min(self.delta * 1.15, 0.90)
 
-        current = self.entry_premium + premium_from_delta - time_decay
-        return max(current, 0.5)  # premium can't go below 0.5
+        premium_from_delta = index_move * effective_delta
+
+        gamma_base = 0.002
+        if dte_now <= 1.0:
+            gamma_base = 0.005
+        elif dte_now <= 2.0:
+            gamma_base = 0.003
+        gamma_pnl = 0.5 * gamma_base * (index_move ** 2)
+
+        if dte_now <= 2.0:
+            theta_mult = 1.0 / max(0.3, dte_now ** 0.5)
+        else:
+            theta_mult = 1.0
+        time_decay = candles_elapsed * self.theta_per_candle * theta_mult
+
+        current = self.entry_premium + premium_from_delta + gamma_pnl - time_decay
+        return max(current, 0.5)
 
     def update_trail(self, current_prem: float,
                       trigger_pct: float, trail_pct: float) -> float | None:
@@ -69,28 +93,33 @@ class PremiumState:
 
 
 STRATEGY_TARGET_MULT = {
-    "SUPERTREND":    {70: 1.35, 50: 1.25, 0: 1.20},
-    "STOCH_CROSS":   {70: 1.35, 50: 1.25, 0: 1.20},
-    "PULLBACK":      {70: 1.30, 50: 1.20, 0: 1.15},
-    "RSI_REVERSION": {70: 1.25, 50: 1.20, 0: 1.15},
-    "VWAP_MOMENTUM": {70: 1.30, 50: 1.25, 0: 1.20},
-    "EMA_MOMENTUM":  {70: 1.50, 50: 1.40, 0: 1.30},
-    "VWAP_MEAN_REV": {70: 1.25, 50: 1.20, 0: 1.15},
-    "CPR_RANGE":     {70: 1.22, 50: 1.18, 0: 1.15},
-    "GAP_TRADE":     {70: 1.35, 50: 1.25, 0: 1.20},
-    "CPR_BREAKOUT":  {70: 1.35, 50: 1.25, 0: 1.20},
-    "ADX_BREAKOUT":  {70: 1.35, 50: 1.25, 0: 1.20},
-    "TREND_RIDE":    {70: 1.45, 50: 1.35, 0: 1.25},
-    "ORB_BREAKOUT":  {70: 1.50, 50: 1.35, 0: 1.25},
-    "BB_SQUEEZE":    {70: 1.45, 50: 1.35, 0: 1.25},
-    "VWAP_BOUNCE":   {70: 1.40, 50: 1.30, 0: 1.20},
-    "RSI_DIVERGENCE": {70: 1.35, 50: 1.25, 0: 1.15},
+    "SUPERTREND":    {70: 1.50, 50: 1.50, 0: 1.50},
+    "STOCH_CROSS":   {70: 1.50, 50: 1.50, 0: 1.50},
+    "PULLBACK":      {70: 1.50, 50: 1.50, 0: 1.50},
+    "TREND_RIDE":    {70: 1.50, 50: 1.50, 0: 1.50},
+    "RSI_REVERSION": {70: 1.60, 50: 1.45, 0: 1.35},
+    "VWAP_MOMENTUM": {70: 1.60, 50: 1.45, 0: 1.35},
+    "EMA_MOMENTUM":  {70: 2.50, 50: 2.00, 0: 1.70},
+    "VWAP_MEAN_REV": {70: 1.40, 50: 1.30, 0: 1.20},
+    "CPR_RANGE":     {70: 1.40, 50: 1.30, 0: 1.20},
+    "GAP_TRADE":     {70: 2.00, 50: 1.70, 0: 1.50},
+    "CPR_BREAKOUT":  {70: 2.00, 50: 1.70, 0: 1.50},
+    "ADX_BREAKOUT":  {70: 1.60, 50: 1.45, 0: 1.35},
+    "ORB_BREAKOUT":  {70: 2.00, 50: 1.70, 0: 1.50},
+    "BB_SQUEEZE":    {70: 2.00, 50: 1.70, 0: 1.50},
+    "VWAP_BOUNCE":   {70: 1.60, 50: 1.45, 0: 1.35},
+    "RSI_DIVERGENCE": {70: 1.60, 50: 1.45, 0: 1.35},
+    "TRIPLE_CONFIRM": {70: 2.50, 50: 2.00, 0: 1.70},
+    "FIRST_HOUR_MOM": {70: 2.00, 50: 1.70, 0: 1.50},
+    "VWAP_2SD_REV":   {70: 1.40, 50: 1.30, 0: 1.20},
+    "NARROW_CPR_BO":  {70: 2.00, 50: 1.70, 0: 1.50},
 }
 
 STRATEGY_SL_PCT = {
-    "SUPERTREND":    10.0,
-    "STOCH_CROSS":   10.0,
-    "PULLBACK":      10.0,
+    "SUPERTREND":    3.0,
+    "STOCH_CROSS":   3.0,
+    "PULLBACK":      3.0,
+    "TREND_RIDE":    3.0,
     "RSI_REVERSION": 10.0,
     "VWAP_MOMENTUM": 10.0,
     "EMA_MOMENTUM":  10.0,
@@ -99,11 +128,28 @@ STRATEGY_SL_PCT = {
     "GAP_TRADE":     10.0,
     "CPR_BREAKOUT":  10.0,
     "ADX_BREAKOUT":  10.0,
-    "TREND_RIDE":    15.0,
     "ORB_BREAKOUT":  10.0,
     "BB_SQUEEZE":    10.0,
     "VWAP_BOUNCE":   8.0,
     "RSI_DIVERGENCE": 8.0,
+    "TRIPLE_CONFIRM": 15.0,
+    "FIRST_HOUR_MOM": 12.0,
+    "VWAP_2SD_REV":   10.0,
+    "NARROW_CPR_BO":  12.0,
+}
+
+STRATEGY_HOLD_BARS = {
+    "PULLBACK":    12,
+    "SUPERTREND":  20,
+    "TREND_RIDE":  15,
+    "STOCH_CROSS": 12,
+}
+
+STRATEGY_TRAIL = {
+    "PULLBACK":    {"trigger": 5.0, "pullback": 2.0},
+    "SUPERTREND":  {"trigger": 10.0, "pullback": 4.0},
+    "TREND_RIDE":  {"trigger": 5.0, "pullback": 2.0},
+    "STOCH_CROSS": {"trigger": 5.0, "pullback": 2.0},
 }
 
 
@@ -116,6 +162,7 @@ def create_premium_state(
     sl_pct: float = 35.0,
     confluence_score: float = 50.0,
     signal_type: str = "",
+    dte: float = 3.0,
 ) -> PremiumState:
     """Create a premium state for a new trade, deterministically.
 
@@ -147,4 +194,5 @@ def create_premium_state(
         direction=direction,
         sl_premium=round(sl_prem, 2),
         target_premium=round(target_prem, 2),
+        dte=dte,
     )

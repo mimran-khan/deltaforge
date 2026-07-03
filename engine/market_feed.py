@@ -42,18 +42,36 @@ class MarketFeed:
         self._connected = False
         self._reconnect_count = 0
 
-    def start(self, tokens: list[str] | None = None):
-        """Start WebSocket in background thread."""
+    def start(self, tokens: list[str] | None = None,
+              token_groups: list[dict] | None = None):
+        """Start WebSocket in background thread.
+
+        Args:
+            tokens: legacy single-segment token list (exchangeType 1 / NSE).
+                    Used by the existing TradingEngine -- behavior unchanged.
+            token_groups: multi-segment subscription list for multi-asset mode.
+                    Format: [{"exchangeType": 5, "tokens": ["t1","t2"]}, ...]
+                    When provided, `tokens` is ignored.
+        """
         if self._running:
             return
         self._running = True
+
+        if token_groups:
+            subscribe_list = token_groups
+        else:
+            subscribe_list = [
+                {"exchangeType": 1, "tokens": tokens or [self.NIFTY_TOKEN]}
+            ]
+
         self._thread = threading.Thread(
             target=self._run_ws,
-            args=(tokens or [self.NIFTY_TOKEN],),
+            args=(subscribe_list,),
             daemon=True,
         )
         self._thread.start()
-        logger.info("MarketFeed started (WebSocket thread)")
+        logger.info("MarketFeed started (WebSocket thread, {} segment(s))",
+                     len(subscribe_list))
 
     def stop(self):
         self._running = False
@@ -80,11 +98,11 @@ class MarketFeed:
     def is_connected(self) -> bool:
         return self._connected
 
-    def _run_ws(self, tokens: list[str]):
+    def _run_ws(self, subscribe_list: list[dict]):
         """WebSocket loop with unlimited reconnection and exponential backoff."""
         while self._running:
             try:
-                self._connect_and_subscribe(tokens)
+                self._connect_and_subscribe(subscribe_list)
             except Exception as e:
                 self._connected = False
                 self._reconnect_count += 1
@@ -97,7 +115,7 @@ class MarketFeed:
 
         self._connected = False
 
-    def _connect_and_subscribe(self, tokens: list[str]):
+    def _connect_and_subscribe(self, subscribe_list: list[dict]):
         try:
             from SmartApi.smartWebSocketV2 import SmartWebSocketV2
         except ImportError:
@@ -117,7 +135,6 @@ class MarketFeed:
                 ltp = message.get("last_traded_price", 0)
                 vol = message.get("exchange_feed_time_epoch_volume", 0)
                 if token and ltp:
-                    # SmartWebSocketV2 returns price * 100
                     price = ltp / 100.0
                     with self._lock:
                         self._prices[token] = {
@@ -131,11 +148,10 @@ class MarketFeed:
         def on_open(ws):
             self._connected = True
             self._reconnect_count = 0
-            logger.info("WebSocket connected")
-            token_list = [
-                {"exchangeType": 1, "tokens": tokens}
-            ]
-            self._ws.subscribe("abc123", 1, token_list)
+            total_tokens = sum(len(g.get("tokens", [])) for g in subscribe_list)
+            logger.info("WebSocket connected -- subscribing {} token(s) across {} segment(s)",
+                         total_tokens, len(subscribe_list))
+            self._ws.subscribe("abc123", 1, subscribe_list)
 
         def on_error(ws, error):
             logger.warning("WebSocket error: {}", error)

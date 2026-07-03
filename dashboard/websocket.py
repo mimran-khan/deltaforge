@@ -97,6 +97,10 @@ class _DataFileHandler(FileSystemEventHandler):
             state = da.read_engine_state()
             if state:
                 _push({"type": "engine", "data": state})
+        elif path.name == "multi_asset_state.json":
+            state = da.read_multi_asset_state()
+            if state:
+                _push({"type": "multi_asset", "data": state})
         elif path.name == "events.jsonl":
             evts = da.get_events(limit=1)
             if evts:

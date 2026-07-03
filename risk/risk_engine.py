@@ -17,6 +17,7 @@ import pytz
 from loguru import logger
 
 from config import settings
+from engine.premium_model import STRATEGY_SL_PCT
 from risk.capital_tracker import CapitalTracker
 from risk.kill_switch import set_halt as _set_halt_flag, clear_halt as _clear_halt_flag
 
@@ -96,7 +97,9 @@ class RiskEngine:
                  strength: str = "NONE",
                  signal_obj=None,
                  lot_multiplier: float = 1.0,
-                 min_confidence_override: int | None = None) -> RiskDecision:
+                 min_confidence_override: int | None = None,
+                 bar_time_str: str | None = None,
+                 signal_type: str = "") -> RiskDecision:
         """Evaluate a trade against all pre-trade risk rules.
 
         Gates 0-9 must ALL pass. Any single failure = rejection.
@@ -159,11 +162,11 @@ class RiskEngine:
             if today_weekday == settings.NIFTY_EXPIRY_DAY:
                 return RiskDecision(False, "No trading on expiry day")
 
-        # Gate 8: Time window
-        now_str = datetime.now(IST).strftime("%H:%M")
-        if now_str < settings.ENTRY_START:
+        # Gate 8: Time window (bar_time_str used during late-start catch-up replay)
+        check_str = bar_time_str if bar_time_str is not None else datetime.now(IST).strftime("%H:%M")
+        if check_str < settings.ENTRY_START:
             return RiskDecision(False, f"Before entry window ({settings.ENTRY_START})")
-        if now_str > settings.ENTRY_END:
+        if check_str > settings.ENTRY_END:
             return RiskDecision(False, f"After entry window ({settings.ENTRY_END})")
 
         # Gate 9: Signal confidence threshold
@@ -179,14 +182,16 @@ class RiskEngine:
         if lots <= 0:
             return RiskDecision(False, "Lot sizing returned 0 (drawdown halt)")
 
-        logger.info("RISK APPROVED: {}x lots, DD={:.1f}%, Cap=Rs {:.0f}",
-                     lots, dd, self.capital.current_capital)
+        effective_sl = STRATEGY_SL_PCT.get(signal_type, settings.PREMIUM_SL_PCT)
+
+        logger.info("RISK APPROVED: {}x lots, DD={:.1f}%, Cap=Rs {:.0f}, SL={:.1f}%",
+                     lots, dd, self.capital.current_capital, effective_sl)
 
         return RiskDecision(
             approved=True,
             reason="All gates passed",
             lots=lots,
-            premium_sl_pct=settings.PREMIUM_SL_PCT,
+            premium_sl_pct=effective_sl,
         )
 
     def check_realtime(self) -> bool:

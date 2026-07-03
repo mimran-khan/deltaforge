@@ -15,6 +15,8 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
+from config import settings
+
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -84,13 +86,14 @@ def data_dir(tmp_path):
     conn.commit()
     conn.close()
 
-    # events.jsonl
+    # events.jsonl -- use today's date so get_events() default filter matches
+    today_str = datetime.now().strftime("%Y-%m-%d")
     events = [
-        {"ts": "2026-06-02T09:15:00+05:30", "event": "DAY_START",
+        {"ts": f"{today_str}T09:15:00+05:30", "event": "DAY_START",
          "capital": 10000, "mode": "paper", "strategy": "MultiStratV11"},
-        {"ts": "2026-06-02T10:45:00+05:30", "event": "PAPER_ENTRY",
+        {"ts": f"{today_str}T10:45:00+05:30", "event": "PAPER_ENTRY",
          "direction": "LONG", "signal_type": "PULLBACK", "entry_premium": 102.3},
-        {"ts": "2026-06-02T12:10:00+05:30", "event": "PAPER_EXIT",
+        {"ts": f"{today_str}T12:10:00+05:30", "event": "PAPER_EXIT",
          "direction": "LONG", "signal_type": "SUPERTREND", "pnl": 921.0},
     ]
     with open(data / "events.jsonl", "w") as f:
@@ -182,7 +185,8 @@ class TestStatus:
         client, data_dir = patched_app
         lock = {"pid": 12345, "started_at": "2026-06-02T08:30:00+05:30"}
         (data_dir / "session.lock").write_text(json.dumps(lock))
-        r = client.get("/api/status")
+        with mock.patch("os.kill", return_value=None):
+            r = client.get("/api/status")
         d = r.json()
         assert d["session_active"] is True
         assert d["session_pid"] == 12345
@@ -275,32 +279,84 @@ class TestStrategyStats:
             assert "worst_trade" in s
 
 
+class TestStrategyDetails:
+    def test_returns_strategy_details(self, patched_app):
+        client, _ = patched_app
+        r = client.get("/api/trades/strategy-details")
+        assert r.status_code == 200
+        details = r.json()
+        assert len(details) >= 1
+        d = details[0]
+        assert "strategy" in d
+        assert "heatmap" in d
+        assert "cumulative_pnl" in d
+        assert "conditions" in d
+
+    def test_includes_avg_win_loss(self, patched_app):
+        client, _ = patched_app
+        r = client.get("/api/trades/strategy-details")
+        for d in r.json():
+            assert "avg_win" in d
+            assert "avg_loss" in d
+            assert "active" in d
+
+
+class TestAnalytics:
+    def test_returns_analytics_shape(self, patched_app):
+        client, _ = patched_app
+        r = client.get("/api/analytics")
+        assert r.status_code == 200
+        data = r.json()
+        assert "summary" in data
+        assert "daily_pnl" in data
+        assert "monthly" in data
+        assert "hourly_avg_pnl" in data
+        assert "recent_daily_pnl" in data
+
+    def test_summary_has_trade_counts(self, patched_app):
+        client, _ = patched_app
+        s = r.json()["summary"] if (r := client.get("/api/analytics")).status_code == 200 else {}
+        assert s["total_trades"] == 4
+        assert "expectancy" in s
+
+    def test_monthly_breakdown(self, patched_app):
+        client, _ = patched_app
+        monthly = client.get("/api/analytics").json()["monthly"]
+        assert len(monthly) >= 1
+        assert "month" in monthly[0]
+        assert "pnl" in monthly[0]
+
+
 # ── Events ───────────────────────────────────────────────────
 
 class TestEvents:
+    @staticmethod
+    def _today():
+        return datetime.now().strftime("%Y-%m-%d")
+
     def test_returns_events(self, patched_app):
         client, _ = patched_app
-        r = client.get("/api/events?date=2026-06-02")
+        r = client.get(f"/api/events?date={self._today()}")
         assert r.status_code == 200
         events = r.json()
         assert len(events) == 3
 
     def test_filters_by_type(self, patched_app):
         client, _ = patched_app
-        r = client.get("/api/events?date=2026-06-02&type=PAPER_ENTRY")
+        r = client.get(f"/api/events?date={self._today()}&type=PAPER_ENTRY")
         events = r.json()
         assert len(events) == 1
         assert events[0]["event"] == "PAPER_ENTRY"
 
     def test_newest_first(self, patched_app):
         client, _ = patched_app
-        r = client.get("/api/events?date=2026-06-02")
+        r = client.get(f"/api/events?date={self._today()}")
         events = r.json()
         assert events[0]["event"] == "PAPER_EXIT"
 
     def test_respects_limit(self, patched_app):
         client, _ = patched_app
-        r = client.get("/api/events?date=2026-06-02&limit=1")
+        r = client.get(f"/api/events?date={self._today()}&limit=1")
         assert len(r.json()) == 1
 
 
@@ -464,20 +520,27 @@ class TestCandles:
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
+    def test_candles_accepts_timeframe(self, patched_app):
+        client, _ = patched_app
+        r = client.get("/api/candles?tf=15m")
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
 
 # ── CORS ─────────────────────────────────────────────────────
 
 class TestCORS:
     def test_cors_headers(self, patched_app):
         client, _ = patched_app
+        origin = f"http://localhost:{settings.DASHBOARD_PORT}"
         r = client.options(
             "/api/status",
             headers={
-                "Origin": "http://localhost:3000",
+                "Origin": origin,
                 "Access-Control-Request-Method": "GET",
             },
         )
-        assert r.headers.get("access-control-allow-origin") == "*"
+        assert r.headers.get("access-control-allow-origin") == origin
 
 
 # ── Static Serving ───────────────────────────────────────────

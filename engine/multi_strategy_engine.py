@@ -42,12 +42,100 @@ class TradeSignal:
     nifty_price: float
     reason: str
     pullback_count: int = 0
+    vol_ratio: float = 1.0  # ATR-based volatility scalar for adaptive SL
 
     def summary(self) -> str:
         return (f"{self.signal_type} {self.direction} "
                 f"conf={self.confidence:.0f} "
                 f"HTF={self.htf_rsi:.0f} LTF={self.ltf_rsi:.0f} "
                 f"confirms={self.pullback_count}")
+
+
+class RegimeDetector:
+    """Lightweight intraday regime classifier.
+
+    Runs once after ORB (09:45) and sets the day's directional bias.
+    Strategies aligned with the regime get a confidence boost; those
+    fighting it get penalised.
+    """
+
+    BOOST = 10       # confidence added for regime-aligned signals
+    PENALTY = 15     # confidence subtracted for regime-opposing signals
+    GAP_ATR_RATIO = 0.5   # gap must exceed 0.5x prev-day ATR
+
+    ALIGNED_STRATEGIES = {
+        "GAP_FADE_SHORT": {"GAP_TRADE", "VWAP_MEAN_REV"},
+        "GAP_FADE_LONG":  {"GAP_TRADE", "VWAP_MEAN_REV"},
+    }
+
+    def __init__(self):
+        self.regime: str = "UNKNOWN"
+
+    def classify(self, day_gap: float, orb_high: float, orb_low: float,
+                 orb_close: float, prev_day_atr: float) -> str:
+        if prev_day_atr <= 0 or np.isnan(prev_day_atr):
+            prev_day_atr = 100.0
+
+        if abs(day_gap) > prev_day_atr * self.GAP_ATR_RATIO:
+            orb_mid = (orb_high + orb_low) / 2
+            if day_gap > 0 and orb_close < orb_mid:
+                self.regime = "GAP_FADE_SHORT"
+                return self.regime
+            if day_gap < 0 and orb_close > orb_mid:
+                self.regime = "GAP_FADE_LONG"
+                return self.regime
+
+        if orb_close > orb_high * 0.998:
+            self.regime = "TREND_LONG"
+        elif orb_close < orb_low * 1.002:
+            self.regime = "TREND_SHORT"
+        else:
+            self.regime = "RANGE"
+        return self.regime
+
+    def adjust_confidence(self, signal: TradeSignal) -> None:
+        """Boost or penalise confidence based on regime alignment."""
+        if self.regime == "UNKNOWN":
+            return
+
+        aligned_strats = self.ALIGNED_STRATEGIES.get(self.regime, set())
+        if signal.signal_type in aligned_strats:
+            signal.confidence = min(signal.confidence + self.BOOST + 5, 100)
+            return
+
+        if self.regime == "GAP_FADE_SHORT":
+            if signal.direction == "SHORT":
+                signal.confidence = min(signal.confidence + self.BOOST, 100)
+            elif signal.direction == "LONG":
+                signal.confidence = max(signal.confidence - self.PENALTY, 0)
+
+        elif self.regime == "GAP_FADE_LONG":
+            if signal.direction == "LONG":
+                signal.confidence = min(signal.confidence + self.BOOST, 100)
+            elif signal.direction == "SHORT":
+                signal.confidence = max(signal.confidence - self.PENALTY, 0)
+
+        elif self.regime == "TREND_LONG":
+            if signal.direction == "LONG":
+                signal.confidence = min(signal.confidence + self.BOOST, 100)
+            elif signal.direction == "SHORT":
+                signal.confidence = max(signal.confidence - self.PENALTY, 0)
+
+        elif self.regime == "TREND_SHORT":
+            if signal.direction == "SHORT":
+                signal.confidence = min(signal.confidence + self.BOOST, 100)
+            elif signal.direction == "LONG":
+                signal.confidence = max(signal.confidence - self.PENALTY, 0)
+
+
+def _round_number_boost(signal: TradeSignal) -> None:
+    """Boost confidence near psychological levels (x00, x50)."""
+    price = signal.nifty_price
+    dist_100 = min(price % 100, 100 - price % 100)
+    dist_50 = min(price % 50, 50 - price % 50)
+    near_round = min(dist_100, dist_50)
+    if near_round <= 15:
+        signal.confidence = min(signal.confidence + 5, 100)
 
 
 class MultiStrategyEngine:
@@ -64,21 +152,29 @@ class MultiStrategyEngine:
     HTF_DEAD_ZONE_HI = 5   # trade when RSI > 55 or < 45
 
     MIN_ADX = 10            # low bar for directional move
+    MAX_ADX = 50            # raised to 50 -- optimizer: captures strong trends without filtering
     SUPERTREND_MIN_ADX = 25 # stricter ADX gate for SUPERTREND strategy
 
-    # ── Strategies disabled (net losers / unproven) ──
+    # ── Strategies disabled (net losers on real weekly option data) ──
+    # Enabled: PULLBACK, SUPERTREND, TREND_RIDE, STOCH_CROSS
+    # (validated 6.30% geo daily on 99 days real weekly option premiums)
     DISABLED_STRATEGIES = {
         "EMA_MOMENTUM",
-        "SUPERTREND",
         "VWAP_MOMENTUM",
         "VWAP_MEAN_REV",
         "RSI_REVERSION",
-        "GAP_TRADE",
         "ADX_BREAKOUT",
         "ORB_BREAKOUT",
         "BB_SQUEEZE",
         "VWAP_BOUNCE",
         "RSI_DIVERGENCE",
+        "CPR_RANGE",
+        "CPR_BREAKOUT",
+        "GAP_TRADE",
+        "FIRST_HOUR_MOM",
+        "NARROW_CPR_BO",
+        "TRIPLE_CONFIRM",
+        "VWAP_2SD_REV",
     }
 
     MAX_STOCH_PER_DAY = 10
@@ -97,12 +193,38 @@ class MultiStrategyEngine:
     MAX_SQUEEZE_PER_DAY = 3
     MAX_VWAP_BOUNCE_PER_DAY = 4
     MAX_DIVERGENCE_PER_DAY = 3
-    MAX_TOTAL_PER_DAY = 8
+    MAX_TRIPLE_CONFIRM_PER_DAY = 3
+    MAX_FIRST_HOUR_PER_DAY = 2
+    MAX_VWAP_2SD_PER_DAY = 4
+    MAX_NARROW_CPR_PER_DAY = 3
+    MAX_TOTAL_PER_DAY = 12
     USE_VWAP_FILTER = False
     COOLDOWN_BARS = 3
     SL_COOLDOWN_BARS = 6  # block same strategy for 6 bars (30 min) after SL
 
-    def __init__(self):
+    def __init__(self, enabled_strategies: set[str] | None = None,
+                 disabled_strategies_override: set[str] | None = None,
+                 max_adx_override: float | None = None):
+        self._enabled_strategies = enabled_strategies
+        if disabled_strategies_override is not None:
+            self._disabled_set = disabled_strategies_override
+        elif enabled_strategies is not None:
+            all_strats = {
+                "PULLBACK", "STOCH_CROSS", "EMA_MOMENTUM", "SUPERTREND",
+                "RSI_REVERSION", "VWAP_MOMENTUM", "VWAP_MEAN_REV",
+                "CPR_RANGE", "GAP_TRADE", "CPR_BREAKOUT", "ADX_BREAKOUT",
+                "TREND_RIDE", "ORB_BREAKOUT", "BB_SQUEEZE", "VWAP_BOUNCE",
+                "RSI_DIVERGENCE",
+                "TRIPLE_CONFIRM", "FIRST_HOUR_MOM", "VWAP_2SD_REV",
+                "NARROW_CPR_BO",
+            }
+            self._disabled_set = all_strats - enabled_strategies
+        else:
+            self._disabled_set = self.DISABLED_STRATEGIES
+        if max_adx_override is not None:
+            self._max_adx = max_adx_override
+        else:
+            self._max_adx = self.MAX_ADX
         self._signals_today: list[TradeSignal] = []
         self._pullback_count = 0
         self._stoch_count = 0
@@ -120,6 +242,10 @@ class MultiStrategyEngine:
         self._squeeze_count = 0
         self._vwap_bounce_count = 0
         self._divergence_count = 0
+        self._triple_confirm_count = 0
+        self._first_hour_count = 0
+        self._vwap_2sd_count = 0
+        self._narrow_cpr_count = 0
         self._orb_high: float = np.nan
         self._orb_low: float = np.nan
         self._used_bars: set[int] = set()
@@ -133,6 +259,16 @@ class MultiStrategyEngine:
         self._prev_day_high: float = np.nan
         self._prev_day_low: float = np.nan
         self._prev_day_close: float = np.nan
+        self.regime = RegimeDetector()
+        self._regime_classified: bool = False
+        self._session_low: float = np.inf
+        self._session_high: float = -np.inf
+        self._session_low_bar: int = -100
+        self._session_high_bar: int = -100
+        self._double_bottom: bool = False
+        self._double_top: bool = False
+        self._double_bottom_level: float = np.nan
+        self._double_top_level: float = np.nan
 
     def reset_day(self, prev_day_data: dict | None = None):
         self._signals_today = []
@@ -152,15 +288,32 @@ class MultiStrategyEngine:
         self._squeeze_count = 0
         self._vwap_bounce_count = 0
         self._divergence_count = 0
+        self._triple_confirm_count = 0
+        self._first_hour_count = 0
+        self._vwap_2sd_count = 0
+        self._narrow_cpr_count = 0
         self._orb_high = np.nan
         self._orb_low = np.nan
         self._used_bars = set()
         self._sl_cooldown = {}
         self.shock.reset()
+        self.regime = RegimeDetector()
+        self._regime_classified = False
+        self._session_low = np.inf
+        self._session_high = -np.inf
+        self._session_low_bar = -100
+        self._session_high_bar = -100
+        self._double_bottom = False
+        self._double_top = False
+        self._double_bottom_level = np.nan
+        self._double_top_level = np.nan
         if prev_day_data:
             self._prev_day_high = prev_day_data.get("high", np.nan)
             self._prev_day_low = prev_day_data.get("low", np.nan)
             self._prev_day_close = prev_day_data.get("close", np.nan)
+            self._prev_day_atr = prev_day_data.get("atr", self._prev_day_high - self._prev_day_low)
+        else:
+            self._prev_day_atr = 100.0
 
     def record_sl_exit(self, strategy_name: str, bar_idx: int):
         """Called by trading engine when a position exits via SL.
@@ -242,6 +395,19 @@ class MultiStrategyEngine:
         vwap_std = vwap_diff.rolling(20, min_periods=5).std()
         indicators['vwap_std'] = vwap_std
 
+        macd_line, macd_signal, macd_hist = ind.macd(candles['close'])
+        indicators['macd_line'] = macd_line
+        indicators['macd_signal'] = macd_signal
+        indicators['macd_hist'] = macd_hist
+
+        first_hour_bars = candles.head(12)
+        if len(first_hour_bars) >= 3:
+            indicators['first_hour_high'] = first_hour_bars['high'].max()
+            indicators['first_hour_low'] = first_hour_bars['low'].min()
+        else:
+            indicators['first_hour_high'] = np.nan
+            indicators['first_hour_low'] = np.nan
+
         # CPR levels from previous day data
         pp = (self._prev_day_high + self._prev_day_low + self._prev_day_close) / 3
         bcp = (self._prev_day_high + self._prev_day_low) / 2
@@ -264,33 +430,13 @@ class MultiStrategyEngine:
         return indicators
 
     def _compute_orb(self, candles: pd.DataFrame):
-        """Set opening range high/low from 09:30, 09:35, 09:40 bars."""
+        """Set opening range high/low from the first 3 bars of the session."""
         self._orb_high = np.nan
         self._orb_low = np.nan
         if len(candles) == 0:
             return
 
-        try:
-            orb_slice = candles.between_time("09:30", "09:40")
-        except (TypeError, ValueError):
-            orb_slice = pd.DataFrame()
-
-        if len(orb_slice) == 0:
-            for i in range(min(3, len(candles))):
-                ts = candles.index[i]
-                tstr = ts.strftime("%H:%M") if hasattr(ts, "strftime") else ""
-                if tstr in ("09:30", "09:35", "09:40"):
-                    h = candles['high'].iloc[i]
-                    l = candles['low'].iloc[i]
-                    if np.isnan(self._orb_high):
-                        self._orb_high = h
-                        self._orb_low = l
-                    else:
-                        self._orb_high = max(self._orb_high, h)
-                        self._orb_low = min(self._orb_low, l)
-            return
-
-        orb_bars = orb_slice.head(3)
+        orb_bars = candles.head(3)
         if len(orb_bars) > 0:
             self._orb_high = orb_bars['high'].max()
             self._orb_low = orb_bars['low'].min()
@@ -300,8 +446,39 @@ class MultiStrategyEngine:
     # Signal passes if EITHER condition is met (OR gate).
     # Low-vol + tiny-body candles have 29-41% WR vs higher when filtered.
 
+    def _apply_structure_boost(self, sig: TradeSignal, ind: dict, idx: int):
+        """Boost confidence for double-bottom/top patterns (session state)."""
+        low = self._sv(ind['low'], idx, np.nan)
+        high = self._sv(ind['high'], idx, np.nan)
+        if np.isnan(low) or np.isnan(high):
+            return
+
+        tolerance = 10.0
+        min_gap_bars = 12
+
+        if abs(low - self._session_low) <= tolerance and idx - self._session_low_bar >= min_gap_bars:
+            self._double_bottom = True
+            self._double_bottom_level = self._session_low
+        if low < self._session_low:
+            self._session_low = low
+            self._session_low_bar = idx
+
+        if abs(high - self._session_high) <= tolerance and idx - self._session_high_bar >= min_gap_bars:
+            self._double_top = True
+            self._double_top_level = self._session_high
+        if high > self._session_high:
+            self._session_high = high
+            self._session_high_bar = idx
+
+        if self._double_bottom and sig.direction == "LONG":
+            sig.confidence = min(sig.confidence + 8, 100)
+        if self._double_top and sig.direction == "SHORT":
+            sig.confidence = min(sig.confidence + 8, 100)
+
     def scan(self, indicators: dict, bar_idx: int,
-             time_str: str = "", max_total_override: int | None = None) -> list[TradeSignal]:
+             time_str: str = "", max_total_override: int | None = None,
+             entry_start_override: str | None = None,
+             entry_end_override: str | None = None) -> list[TradeSignal]:
         self._current_time = time_str or "12:00"
 
         max_today = max_total_override if max_total_override is not None else self.MAX_TOTAL_PER_DAY
@@ -318,28 +495,47 @@ class MultiStrategyEngine:
             return []
 
         if time_str:
-            entry_end = getattr(settings, 'ENTRY_END', "14:30")
-            if time_str < "09:30" or time_str > entry_end:
+            entry_start = entry_start_override or "09:30"
+            entry_end = entry_end_override or getattr(settings, 'ENTRY_END', "14:30")
+            if time_str < entry_start or time_str > entry_end:
                 return []
 
-        # ADX regime gate: skip choppy/ranging markets
+        # ADX regime gate: skip choppy/ranging AND overextended markets
         adx_val = self._sv(indicators.get('adx', pd.Series()), bar_idx, 25.0)
         if adx_val < self.MIN_ADX:
+            return []
+        if adx_val > self._max_adx:
             return []
 
         if not self.shock.check(indicators['close'], bar_idx):
             return []
 
-        if time_str in ("09:30", "09:35", "09:40"):
+        if bar_idx < 3:
             bar_high = self._sv(indicators['high'], bar_idx)
             bar_low = self._sv(indicators['low'], bar_idx)
             if not np.isnan(bar_high) and not np.isnan(bar_low):
-                if time_str == "09:30" or np.isnan(self._orb_high):
+                if bar_idx == 0 or np.isnan(self._orb_high):
                     self._orb_high = bar_high
                     self._orb_low = bar_low
                 else:
                     self._orb_high = max(self._orb_high, bar_high)
                     self._orb_low = min(self._orb_low, bar_low)
+
+        if not self._regime_classified and bar_idx >= 3:
+            orb_close = self._sv(indicators['close'], bar_idx)
+            day_gap = indicators.get('day_gap', 0.0)
+            if isinstance(day_gap, pd.Series):
+                day_gap = float(day_gap.iloc[0]) if len(day_gap) > 0 else 0.0
+            r = self.regime.classify(
+                day_gap=float(day_gap),
+                orb_high=self._orb_high if not np.isnan(self._orb_high) else orb_close,
+                orb_low=self._orb_low if not np.isnan(self._orb_low) else orb_close,
+                orb_close=orb_close,
+                prev_day_atr=getattr(self, '_prev_day_atr', 100.0),
+            )
+            self._regime_classified = True
+            logger.info("REGIME classified: {} | gap={:.0f} ORB={:.0f}-{:.0f}",
+                        r, day_gap, self._orb_low, self._orb_high)
 
         vwap_val = self._sv(indicators.get('vwap', pd.Series()), bar_idx, np.nan)
         close_val = self._sv(indicators['close'], bar_idx)
@@ -379,14 +575,19 @@ class MultiStrategyEngine:
             (self._check_bb_squeeze, '_squeeze_count'),
             (self._check_vwap_bounce, '_vwap_bounce_count'),
             (self._check_rsi_divergence, '_divergence_count'),
+            (self._check_triple_confirm, '_triple_confirm_count'),
+            (self._check_first_hour_momentum, '_first_hour_count'),
+            (self._check_vwap_2sd_reversion, '_vwap_2sd_count'),
+            (self._check_narrow_cpr_breakout, '_narrow_cpr_count'),
         ]:
             sig = check_fn(indicators, bar_idx)
             if sig and _vwap_ok(sig):
-                if sig.signal_type in self.DISABLED_STRATEGIES:
+                if sig.signal_type in self._disabled_set:
                     continue
                 if self._is_strategy_cooled(sig.signal_type, bar_idx):
                     continue
                 _vwap_boost(sig)
+                self.regime.adjust_confidence(sig)
                 candidates.append((sig, counter_attr))
 
         if not candidates:
@@ -405,6 +606,16 @@ class MultiStrategyEngine:
 
         if not self._bar_quality_ok(indicators, bar_idx):
             return []
+
+        atr_series = indicators.get("atr")
+        if atr_series is not None and bar_idx >= 100:
+            recent_atr = atr_series.iloc[max(0, bar_idx - 20):bar_idx].mean()
+            baseline_atr = atr_series.iloc[max(0, bar_idx - 100):max(0, bar_idx - 20)].mean()
+            if baseline_atr > 0 and not np.isnan(baseline_atr) and not np.isnan(recent_atr):
+                best_sig.vol_ratio = max(0.8, min(recent_atr / baseline_atr, 2.0))
+
+        _round_number_boost(best_sig)
+        self._apply_structure_boost(best_sig, indicators, bar_idx)
 
         self._signals_today.append(best_sig)
         setattr(self, best_counter, getattr(self, best_counter) + 1)
@@ -1067,8 +1278,9 @@ class MultiStrategyEngine:
     def _check_gap_trade(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
         """Trade gap fills when Nifty opens with a gap > 50 points.
 
-        ~70% gap-fill rate for gaps under 150 points. Enter on the first
-        15-minute candle close that confirms the gap-fill direction.
+        ~70% gap-fill rate for gaps under 150 points. Widened window
+        (bars 2-18, ~90 min) and lower fill threshold (10%) to catch
+        gap-exhaustion setups that develop over the morning session.
         """
         if self._gap_count >= self.MAX_GAP_PER_DAY:
             return None
@@ -1077,7 +1289,7 @@ class MultiStrategyEngine:
         if abs(day_gap) < 50:
             return None
 
-        if idx < 2 or idx > 6:
+        if idx < 2 or idx > 18:
             return None
 
         close = self._sv(ind_dict['close'], idx)
@@ -1092,13 +1304,13 @@ class MultiStrategyEngine:
 
         if day_gap > 50:
             fill_progress = (day_open - close) / day_gap
-            if fill_progress > 0.2 and rsi_5m < 50:
+            if fill_progress > 0.1 and rsi_5m < 55:
                 direction = "SHORT"
                 reasons = [f"Gap↑{day_gap:.0f}pts", f"Fill={fill_progress:.0%}",
                            f"RSI={rsi_5m:.0f}↓"]
         elif day_gap < -50:
             fill_progress = (close - day_open) / abs(day_gap)
-            if fill_progress > 0.2 and rsi_5m > 50:
+            if fill_progress > 0.1 and rsi_5m > 45:
                 direction = "LONG"
                 reasons = [f"Gap↓{abs(day_gap):.0f}pts", f"Fill={fill_progress:.0%}",
                            f"RSI={rsi_5m:.0f}↑"]
@@ -1108,17 +1320,26 @@ class MultiStrategyEngine:
 
         rsi_15m = self._htf_rsi(ind_dict, idx, 50)
 
-        conf = 70
+        conf = 75
         if abs(day_gap) > 100:
             conf += 5
         if abs(day_gap) > 150:
-            conf -= 8
+            conf -= 5
         ema_9 = self._sv(ind_dict['ema_9'], idx, 0)
         ema_21 = self._sv(ind_dict['ema_21'], idx, 0)
         if ema_9 != 0 and ema_21 != 0:
             if (direction == "LONG" and ema_9 > ema_21) or \
                (direction == "SHORT" and ema_9 < ema_21):
                 conf += 3
+
+        vol = self._sv(ind_dict.get('volume', pd.Series()), idx, 0)
+        vol_mean = ind_dict.get('volume')
+        if vol_mean is not None and idx >= 20:
+            avg_vol = vol_mean.iloc[max(0, idx - 20):idx].mean()
+            if avg_vol > 0 and vol > avg_vol * 1.5:
+                conf += 5
+                reasons.append("HighVol")
+
         conf = min(conf, 100)
 
         return TradeSignal(
@@ -1734,6 +1955,178 @@ class MultiStrategyEngine:
             ltf_rsi=rsi_5m,
             nifty_price=close,
             reason=" | ".join(reasons),
+        )
+
+    def _check_triple_confirm(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
+        """Supertrend flip + MACD crossover + Price near VWAP -- all three must align."""
+        if self._triple_confirm_count >= self.MAX_TRIPLE_CONFIRM_PER_DAY:
+            return None
+
+        close = self._sv(ind_dict['close'], idx)
+        vwap = self._sv(ind_dict.get('vwap', pd.Series()), idx, np.nan)
+        st_dir = self._sv(ind_dict['supertrend_dir'], idx, 0)
+        st_prev = self._sv(ind_dict['supertrend_dir'], idx - 1, 0) if idx >= 1 else 0
+        macd_hist = self._sv(ind_dict.get('macd_hist', pd.Series()), idx, 0)
+        macd_prev = self._sv(ind_dict.get('macd_hist', pd.Series()), idx - 1, 0) if idx >= 1 else 0
+        adx_val = self._sv(ind_dict.get('adx', pd.Series()), idx, 0)
+
+        if np.isnan(close) or np.isnan(vwap):
+            return None
+        if adx_val < 15:
+            return None
+
+        vwap_dist_pct = abs(close - vwap) / close * 100
+        if vwap_dist_pct > 0.5:
+            return None
+
+        st_flip_bull = st_prev <= 0 and st_dir == 1
+        st_flip_bear = st_prev >= 0 and st_dir == -1
+        macd_cross_bull = macd_prev <= 0 and macd_hist > 0
+        macd_cross_bear = macd_prev >= 0 and macd_hist < 0
+
+        if st_flip_bull and macd_cross_bull and close > vwap:
+            direction = "LONG"
+        elif st_flip_bear and macd_cross_bear and close < vwap:
+            direction = "SHORT"
+        else:
+            return None
+
+        conf = 78
+        if adx_val > 25:
+            conf += 5
+        if adx_val > 35:
+            conf += 3
+        conf = min(conf, 95)
+
+        return TradeSignal(
+            direction=direction, signal_type="TRIPLE_CONFIRM",
+            confidence=conf, htf_rsi=50, ltf_rsi=50, nifty_price=close,
+            reason=f"ST_flip+MACD_cross+VWAP ADX={adx_val:.0f}",
+        )
+
+    def _check_first_hour_momentum(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
+        """First hour high/low breakout with VWAP confirmation."""
+        if self._first_hour_count >= self.MAX_FIRST_HOUR_PER_DAY:
+            return None
+        if idx < 12:
+            return None
+
+        close = self._sv(ind_dict['close'], idx)
+        vwap = self._sv(ind_dict.get('vwap', pd.Series()), idx, np.nan)
+        fh_high = ind_dict.get('first_hour_high', np.nan)
+        fh_low = ind_dict.get('first_hour_low', np.nan)
+        rsi = self._sv(ind_dict['rsi_5m'], idx, 50)
+        adx_val = self._sv(ind_dict.get('adx', pd.Series()), idx, 0)
+
+        if np.isnan(close) or np.isnan(vwap) or np.isnan(fh_high) or np.isnan(fh_low):
+            return None
+
+        fh_range = fh_high - fh_low
+        if fh_range < 10:
+            return None
+
+        if close > fh_high and close > vwap:
+            direction = "LONG"
+            reasons = f"FH_BO high={fh_high:.0f} close={close:.0f}"
+        elif close < fh_low and close < vwap:
+            direction = "SHORT"
+            reasons = f"FH_BD low={fh_low:.0f} close={close:.0f}"
+        else:
+            return None
+
+        conf = 72
+        if adx_val > 20:
+            conf += 5
+        if fh_range > 50:
+            conf += 3
+        conf = min(conf, 92)
+
+        return TradeSignal(
+            direction=direction, signal_type="FIRST_HOUR_MOM",
+            confidence=conf, htf_rsi=50, ltf_rsi=rsi, nifty_price=close,
+            reason=reasons,
+        )
+
+    def _check_vwap_2sd_reversion(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
+        """Price > 2 SD from VWAP with volume contraction -> trade toward VWAP."""
+        if self._vwap_2sd_count >= self.MAX_VWAP_2SD_PER_DAY:
+            return None
+
+        close = self._sv(ind_dict['close'], idx)
+        vwap = self._sv(ind_dict.get('vwap', pd.Series()), idx, np.nan)
+        vwap_std = self._sv(ind_dict.get('vwap_std', pd.Series()), idx, np.nan)
+        rsi = self._sv(ind_dict['rsi_5m'], idx, 50)
+        bb_pctb = self._sv(ind_dict.get('bb_pctb', pd.Series()), idx, 0.5)
+        vol = self._sv(ind_dict.get('volume', pd.Series()), idx, 0)
+        vol_avg = self._sv(ind_dict.get('vol_avg', pd.Series()), idx, 1)
+
+        if np.isnan(close) or np.isnan(vwap) or np.isnan(vwap_std) or vwap_std <= 0:
+            return None
+
+        z_score = (close - vwap) / vwap_std
+
+        vol_contraction = vol_avg > 0 and vol < vol_avg * 0.8
+
+        if z_score > 2.0 and rsi > 70 and (bb_pctb > 0.95 or vol_contraction):
+            direction = "SHORT"
+        elif z_score < -2.0 and rsi < 30 and (bb_pctb < 0.05 or vol_contraction):
+            direction = "LONG"
+        else:
+            return None
+
+        conf = 74
+        if abs(z_score) > 2.5:
+            conf += 5
+        if vol_contraction:
+            conf += 3
+        conf = min(conf, 92)
+
+        return TradeSignal(
+            direction=direction, signal_type="VWAP_2SD_REV",
+            confidence=conf, htf_rsi=50, ltf_rsi=rsi, nifty_price=close,
+            reason=f"VWAP_2SD z={z_score:.1f} RSI={rsi:.0f}",
+        )
+
+    def _check_narrow_cpr_breakout(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
+        """Narrow CPR (< 20 pts) breakout with volume confirmation."""
+        if self._narrow_cpr_count >= self.MAX_NARROW_CPR_PER_DAY:
+            return None
+
+        close = self._sv(ind_dict['close'], idx)
+        cpr_width = ind_dict.get('cpr_width', np.nan)
+        tcp = ind_dict.get('cpr_tcp', np.nan)
+        bcp = ind_dict.get('cpr_bcp', np.nan)
+        adx_val = self._sv(ind_dict.get('adx', pd.Series()), idx, 0)
+        vol = self._sv(ind_dict.get('volume', pd.Series()), idx, 0)
+        vol_avg = self._sv(ind_dict.get('vol_avg', pd.Series()), idx, 1)
+
+        if np.isnan(close) or np.isnan(cpr_width) or np.isnan(tcp) or np.isnan(bcp):
+            return None
+        if cpr_width >= 40:
+            return None
+        if idx < 6:
+            return None
+
+        vol_confirm = vol_avg > 0 and vol > vol_avg * 1.2
+
+        if close > tcp and vol_confirm:
+            direction = "LONG"
+        elif close < bcp and vol_confirm:
+            direction = "SHORT"
+        else:
+            return None
+
+        conf = 73
+        if adx_val > 20:
+            conf += 5
+        if cpr_width < 10:
+            conf += 4
+        conf = min(conf, 92)
+
+        return TradeSignal(
+            direction=direction, signal_type="NARROW_CPR_BO",
+            confidence=conf, htf_rsi=50, ltf_rsi=50, nifty_price=close,
+            reason=f"NarrowCPR w={cpr_width:.0f} ADX={adx_val:.0f}",
         )
 
     @staticmethod

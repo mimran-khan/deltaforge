@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.deltaforge.wake</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/caffeinate</string>
+        <string>-i</string>
+        <string>-s</string>
+        <string>-t</string>
+        <string>25200</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key><integer>8</integer>
+            <key>Minute</key><integer>15</integer>
+            <key>Weekday</key><integer>1</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>8</integer>
+            <key>Minute</key><integer>15</integer>
+            <key>Weekday</key><integer>2</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>8</integer>
+            <key>Minute</key><integer>15</integer>
+            <key>Weekday</key><integer>3</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>8</integer>
+            <key>Minute</key><integer>15</integer>
+            <key>Weekday</key><integer>4</integer>
+        </dict>
+        <dict>
+            <key>Hour</key><integer>8</integer>
+            <key>Minute</key><integer>15</integer>
+            <key>Weekday</key><integer>5</integer>
+        </dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>__PROJECT_ROOT__/logs/wake_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_ROOT__/logs/wake_stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TZ</key>
+        <string>Asia/Kolkata</string>
+    </dict>
+</dict>
+</plist>

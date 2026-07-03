@@ -21,6 +21,7 @@ class StatusResponse(BaseModel):
     session_active: bool
     session_pid: Optional[int] = None
     last_updated: Optional[str] = None
+    project_root: Optional[str] = None
 
 
 class CapitalResponse(BaseModel):
@@ -54,6 +55,8 @@ class TradeRecord(BaseModel):
     exit_reason: Optional[str] = None
     lots: Optional[int] = None
     capital_after: Optional[float] = None
+    instrument: Optional[str] = "NIFTY"
+    exchange: Optional[str] = "NFO"
     created_at: Optional[str] = None
 
 
@@ -96,3 +99,16 @@ class BrokerInfo(BaseModel):
     max_lots: int
     alert_method: str
     last_updated: Optional[str] = None
+
+
+class InstrumentStatus(BaseModel):
+    name: str
+    display_name: str
+    exchange: str
+    asset_type: str
+    enabled: bool
+    current_price: Optional[float] = None
+    daily_pnl: Optional[float] = None
+    trades_today: Optional[int] = None
+    open_positions: Optional[int] = None
+    capital_allocated: Optional[float] = None

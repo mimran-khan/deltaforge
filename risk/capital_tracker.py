@@ -9,6 +9,7 @@ import fcntl
 import json
 import os
 import shutil
+import sqlite3
 from datetime import datetime
 from typing import Optional
 
@@ -38,31 +39,62 @@ class CapitalTracker:
         self._last_start_date: str = ""
         self._last_weekly_reset: str = ""
         self.week_start_capital: float = settings.STARTING_CAPITAL
+        self.initial_capital: float = settings.STARTING_CAPITAL
+        self.capital_injections: list = []
         self._load()
 
     def _load(self):
-        if settings.CAPITAL_FILE.exists():
-            try:
-                with open(settings.CAPITAL_FILE) as f:
-                    data = json.load(f)
-                self.current_capital = data.get("current_capital", self.starting_capital)
-                self.total_pnl = data.get("total_pnl", 0)
-                self.peak_capital = data.get("peak_capital", self.current_capital)
-                self.weekly_pnl = data.get("weekly_pnl", 0)
-                self.max_drawdown = data.get("max_drawdown", 0)
-                self.daily_pnl = data.get("daily_pnl", 0)
-                self.trades_today = data.get("trades_today", 0)
-                self.consecutive_losses = data.get("consecutive_losses", 0)
-                self.day_start_capital = data.get("day_start_capital", self.current_capital)
-                self.wins_today = data.get("wins_today", 0)
-                self.losses_today = data.get("losses_today", 0)
-                self._last_start_date = data.get("last_start_date", "")
-                self._last_weekly_reset = data.get("last_weekly_reset", "")
-                self.week_start_capital = data.get("week_start_capital", self.current_capital)
-                logger.info("Loaded capital: Rs {:.0f} (peak: Rs {:.0f})",
-                           self.current_capital, self.peak_capital)
-            except Exception as e:
-                logger.error("Capital load error: {}", e)
+        cap_file = settings.CAPITAL_FILE
+        bak_file = cap_file.with_suffix('.bak')
+
+        data = self._read_capital_file(cap_file)
+        bak_data = self._read_capital_file(bak_file)
+
+        if data and bak_data:
+            main_ts = data.get("last_updated", "")
+            bak_ts = bak_data.get("last_updated", "")
+            if bak_ts > main_ts:
+                logger.warning(
+                    "capital.json is stale ({}) vs capital.bak ({}). Using backup.",
+                    main_ts, bak_ts)
+                data = bak_data
+        elif not data and bak_data:
+            logger.warning("capital.json missing, recovering from capital.bak")
+            data = bak_data
+
+        if data:
+            self._apply_loaded_data(data)
+
+    @staticmethod
+    def _read_capital_file(path) -> dict | None:
+        if not path.exists():
+            return None
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error("Failed to read {}: {}", path, e)
+            return None
+
+    def _apply_loaded_data(self, data: dict):
+        self.current_capital = data.get("current_capital", self.starting_capital)
+        self.total_pnl = data.get("total_pnl", 0)
+        self.peak_capital = data.get("peak_capital", self.current_capital)
+        self.weekly_pnl = data.get("weekly_pnl", 0)
+        self.max_drawdown = data.get("max_drawdown", 0)
+        self.daily_pnl = data.get("daily_pnl", 0)
+        self.trades_today = data.get("trades_today", 0)
+        self.consecutive_losses = data.get("consecutive_losses", 0)
+        self.day_start_capital = data.get("day_start_capital", self.current_capital)
+        self.wins_today = data.get("wins_today", 0)
+        self.losses_today = data.get("losses_today", 0)
+        self._last_start_date = data.get("last_start_date", "")
+        self._last_weekly_reset = data.get("last_weekly_reset", "")
+        self.week_start_capital = data.get("week_start_capital", self.current_capital)
+        self.initial_capital = data.get("initial_capital", settings.STARTING_CAPITAL)
+        self.capital_injections = data.get("capital_injections", [])
+        logger.info("Loaded capital: Rs {:.0f} (peak: Rs {:.0f}, deployed: Rs {:.0f})",
+                     self.current_capital, self.peak_capital, self.total_deployed)
 
     def save(self):
         if self.trades_today != self.wins_today + self.losses_today:
@@ -88,6 +120,8 @@ class CapitalTracker:
             "last_start_date": getattr(self, '_last_start_date', ''),
             "last_weekly_reset": getattr(self, '_last_weekly_reset', ''),
             "week_start_capital": round(getattr(self, 'week_start_capital', self.current_capital), 2),
+            "initial_capital": self.initial_capital,
+            "capital_injections": self.capital_injections,
         }
         try:
             tmp = settings.CAPITAL_FILE.with_suffix('.tmp')
@@ -103,12 +137,44 @@ class CapitalTracker:
         except Exception as e:
             logger.error("Capital save error: {}", e)
 
+    def _verify_capital_against_db(self):
+        """Cross-check capital against the last NIFTY trade in trades.db.
+
+        Only considers Nifty/NFO trades since futures trades store their own
+        pool capital (not overall capital) in the capital_after column.
+        """
+        db_path = settings.DATA_DIR / "trades.db"
+        if not db_path.exists():
+            return
+        try:
+            conn = sqlite3.connect(str(db_path))
+            row = conn.execute(
+                "SELECT capital_after, date FROM trades "
+                "WHERE instrument = 'NIFTY' AND capital_after IS NOT NULL AND capital_after > 0 "
+                "ORDER BY rowid DESC LIMIT 1"
+            ).fetchone()
+            conn.close()
+            if row and row[0]:
+                db_cap = float(row[0])
+                if abs(db_cap - self.current_capital) > 1.0:
+                    logger.critical(
+                        "CAPITAL MISMATCH: file says Rs {:.2f} but trades.db "
+                        "last Nifty trade says Rs {:.2f} (from {}). Using DB value.",
+                        self.current_capital, db_cap, row[1],
+                    )
+                    self.current_capital = db_cap
+                    self.total_pnl = db_cap - self.total_deployed
+        except Exception as e:
+            logger.warning("Capital DB cross-check failed: {}", e)
+
     def start_day(self):
         today = datetime.now(IST).date().isoformat()
 
         if getattr(self, '_last_start_date', '') == today:
             logger.info("Day already started ({}), skipping reset. Cap=Rs {:.0f}", today, self.current_capital)
             return
+
+        self._verify_capital_against_db()
 
         # Backup capital file before resetting daily state
         if settings.CAPITAL_FILE.exists():
@@ -171,6 +237,12 @@ class CapitalTracker:
                      strategy, "W" if pnl >= 0 else "L", pnl, self.current_capital)
 
     @property
+    def total_deployed(self) -> float:
+        """Total money put in: initial capital + all injections."""
+        injected = sum(inj.get("amount", 0) for inj in self.capital_injections)
+        return self.initial_capital + injected
+
+    @property
     def drawdown_pct(self) -> float:
         if self.peak_capital <= 0:
             return 0
@@ -189,7 +261,8 @@ class CapitalTracker:
                      premium_per_unit: float = 100.0) -> int:
         """Compute lots from capital -- this is how compounding works.
 
-        1 lot per CAPITAL_PER_LOT of current capital, capped at MAX_LOTS_CAP.
+        Uses the smaller of CAPITAL_PER_LOT and actual premium exposure
+        (premium * lot_size) to avoid over-leveraging when premium is high.
         Drawdown multiplier can reduce this to 0 (halt).
         """
         sizing_mult = self.get_sizing_multiplier()
@@ -197,8 +270,11 @@ class CapitalTracker:
             return 0
 
         deployable = self.current_capital * (settings.CAPITAL_DEPLOY_PCT / 100)
-        per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
-        cap = getattr(settings, 'MAX_LOTS_CAP', 10)
+        per_lot_config = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
+        lot_size = getattr(settings, 'NIFTY_LOT_SIZE', 65)
+        per_lot_exposure = premium_per_unit * lot_size
+        per_lot = max(per_lot_config, per_lot_exposure)
+        cap = getattr(settings, 'MAX_LOTS_CAP', 20)
         lots = max(1, int(deployable / per_lot))
         lots = int(lots * sizing_mult)
         return max(1, min(lots, cap))
@@ -231,6 +307,7 @@ class CapitalTracker:
             "drawdown_current": self.drawdown_pct,
             "consecutive_losses": self.consecutive_losses,
             "peak_capital": self.peak_capital,
+            "total_deployed": self.total_deployed,
             "trade_log": self._trade_log,
         }
 

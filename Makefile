@@ -30,7 +30,9 @@ DF := $(VENV)/bin/df
 # ─── Setup ───────────────────────────────────────────────────
 
 .PHONY: install
-install: $(VENV)/bin/activate  ## Create venv and install everything
+install: $(VENV)/bin/df  ## Create venv and install everything
+
+$(VENV)/bin/df: $(VENV)/bin/activate
 	@$(PIP) install -e ".[test]" --quiet
 	@echo "✓ DeltaForge installed. Run: make trade"
 
@@ -46,19 +48,19 @@ update:  ## Update all dependencies
 # ─── Trading ─────────────────────────────────────────────────
 
 .PHONY: trade
-trade: install  ## Start paper trading session
+trade: $(VENV)/bin/df  ## Start paper trading session
 	@$(DF) trade
 
 .PHONY: trade-live
-trade-live: install  ## Start LIVE trading (real orders -- confirm required)
+trade-live: $(VENV)/bin/df  ## Start LIVE trading (real orders -- confirm required)
 	@$(DF) trade --live
 
 .PHONY: trade-verbose
-trade-verbose: install  ## Paper trading with debug-level logs
+trade-verbose: $(VENV)/bin/df  ## Paper trading with debug-level logs
 	@$(DF) trade --verbose
 
 .PHONY: run
-run: install  ## Start trading + dashboard together
+run: $(VENV)/bin/df  ## Start trading + dashboard together
 	@echo "Starting dashboard at http://localhost:8900 ..."
 	@$(PYTHON) -m dashboard.server &
 	@DASHBOARD_PID=$$!; \
@@ -68,7 +70,7 @@ run: install  ## Start trading + dashboard together
 	kill $$DASHBOARD_PID 2>/dev/null
 
 .PHONY: run-live
-run-live: install  ## Start LIVE trading + dashboard together
+run-live: $(VENV)/bin/df  ## Start LIVE trading + dashboard together
 	@echo "Starting dashboard at http://localhost:8900 ..."
 	@$(PYTHON) -m dashboard.server &
 	@DASHBOARD_PID=$$!; \

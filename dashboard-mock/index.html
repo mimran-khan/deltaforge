@@ -45,6 +45,13 @@ body.has-api-error .app-main{margin-top:28px;}
 .nav-item.nav-soon .tooltip::after{content:" (Coming Soon)";color:var(--text-muted);font-weight:400;}
 .nav-soon-badge{position:absolute;bottom:1px;right:1px;font-size:5px;font-weight:600;color:var(--text-muted);letter-spacing:0.2px;opacity:0.85;pointer-events:none;}
 .candle-chart-svg{width:100%;height:100%;position:absolute;inset:0;}
+.inst-chart-container{width:100%;height:260px;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;margin-bottom:4px;}
+.inst-chart-container svg{width:100%;height:100%;}
+.inst-chart-overlay{font-size:10px;font-family:var(--font-mono);color:var(--text-secondary);display:flex;gap:10px;padding:2px 0;min-height:16px;}
+.inst-chart-overlay .val{font-weight:600;color:var(--text-primary);}
+.inst-tf-bar{display:flex;gap:2px;margin-left:auto;}
+.inst-tf-bar button{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:1px 8px;border-radius:3px;font-size:9px;cursor:pointer;font-family:var(--font-ui);}
+.inst-tf-bar button.active{background:var(--accent);color:#000;border-color:var(--accent);}
 .sidebar-bottom{margin-top:auto;}
 
 /* ═══ MAIN CONTAINER ═══ */
@@ -62,7 +69,7 @@ body.has-api-error .app-main{margin-top:28px;}
 .kpi-value{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:12px;font-weight:600;}
 .topbar-right{display:flex;align-items:center;gap:10px;padding-left:10px;border-left:1px solid var(--border);margin-left:auto;}
 .status-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;}
-.status-dot.live{background:var(--profit);box-shadow:0 0 6px var(--profit);}
+.status-dot.live,.status-dot.online{background:var(--profit);box-shadow:0 0 6px var(--profit);}
 .status-dot.offline{background:var(--loss);}
 .mode-badge{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;padding:2px 6px;border-radius:3px;background:var(--accent-dim);color:var(--accent);}
 .killswitch-btn{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:10px;font-weight:500;color:var(--text-secondary);background:transparent;transition:all 0.15s;font-family:var(--font-ui);}
@@ -99,6 +106,11 @@ body.has-api-error .app-main{margin-top:28px;}
 .data-table th{text-align:left;padding:5px 8px;font-weight:500;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;background:var(--bg-panel);border-bottom:1px solid var(--border);}
 .data-table td{padding:4px 8px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums;}
 .data-table tr:hover{background:var(--bg-hover);}
+.styled-table{width:100%;border-collapse:collapse;font-size:11px;}
+.styled-table thead{position:sticky;top:0;z-index:1;}
+.styled-table th{text-align:left;padding:5px 8px;font-weight:500;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;background:var(--bg-panel);border-bottom:1px solid var(--border);}
+.styled-table td{padding:4px 8px;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums;}
+.styled-table tr:hover{background:var(--bg-hover);}
 .filter-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
 .filter-btn{font-size:10px;padding:3px 8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);border-radius:3px;cursor:pointer;font-family:var(--font-ui);transition:all 0.12s;}
 .filter-btn:hover{border-color:var(--text-secondary);color:var(--text-secondary);}
@@ -354,7 +366,7 @@ body.has-api-error .app-main{margin-top:28px;}
 </style>
 </head>
 <body>
-<div class="api-error-banner" id="api-error-banner">Dashboard API unreachable — showing mock data</div>
+<div class="api-error-banner" id="api-error-banner">Dashboard API unreachable — live data unavailable</div>
 
 <!-- ═══ SIDEBAR ═══ -->
 <nav class="sidebar">
@@ -374,15 +386,13 @@ body.has-api-error .app-main{margin-top:28px;}
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M10 3v7l5 3"/></svg>
     <span class="tooltip">Strategy Deep Dive</span>
   </div>
-  <div class="nav-item nav-soon" onclick="switchPage(3)">
+  <div class="nav-item" onclick="switchPage(3)">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17V7l4 3 4-6 4 4 2-2v11H3z"/></svg>
-    <span class="tooltip">Backtest Results</span>
-    <span class="nav-soon-badge">Soon</span>
+    <span class="tooltip">Trade History</span>
   </div>
-  <div class="nav-item nav-soon" onclick="switchPage(4)">
+  <div class="nav-item" onclick="switchPage(4)">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 2v4M10 14v4M18 10h-4M6 10H2"/><circle cx="10" cy="10" r="3"/></svg>
     <span class="tooltip">Risk Console</span>
-    <span class="nav-soon-badge">Soon</span>
   </div>
   <div class="nav-item" onclick="switchPage(5)">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M7 7v10"/></svg>
@@ -396,10 +406,30 @@ body.has-api-error .app-main{margin-top:28px;}
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="14" height="10" rx="1"/><path d="M7 5V3M13 5V3M3 9h14"/></svg>
     <span class="tooltip">Broker & System</span>
   </div>
-  <div class="nav-item nav-soon" onclick="switchPage(8)">
+  <div class="nav-item" onclick="switchPage(8)">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 15l4-4 3 2 4-5 3 3"/><circle cx="16" cy="7" r="2"/></svg>
     <span class="tooltip">Performance Analytics</span>
-    <span class="nav-soon-badge">Soon</span>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-item" onclick="switchPage(9)">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="6"/><path d="M10 4v6l4 2"/><path d="M3 10h2M15 10h2"/></svg>
+    <span class="tooltip">All Markets</span>
+  </div>
+  <div class="nav-item" onclick="switchPage(10)">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3l-1 6 5-3-4 8 1-6-5 3z"/></svg>
+    <span class="tooltip">Gold Terminal</span>
+  </div>
+  <div class="nav-item" onclick="switchPage(11)">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="12" r="5"/><path d="M7 12h6M10 9v6"/><path d="M6 5l2 3M14 5l-2 3"/></svg>
+    <span class="tooltip">Crude Oil Terminal</span>
+  </div>
+  <div class="nav-item" onclick="switchPage(12)">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 10h4l2-4 2 8 2-4h2"/></svg>
+    <span class="tooltip">USD/INR Terminal</span>
+  </div>
+  <div class="nav-item" onclick="switchPage(13)">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="14" height="12" rx="1"/><path d="M3 8h14M3 12h14M7 8v8M13 8v8"/></svg>
+    <span class="tooltip">All Trades</span>
   </div>
   <div class="sidebar-bottom">
     <div class="sidebar-divider"></div>
@@ -417,12 +447,15 @@ body.has-api-error .app-main{margin-top:28px;}
 <div class="topbar">
   <div class="topbar-brand"><span>DeltaForge</span><span class="version">V11</span></div>
   <div class="kpi-strip">
-    <div class="kpi"><span class="kpi-label">Nifty</span><span class="kpi-value profit" id="nifty-price">23,479 <span style="font-size:9px">+0.42%</span></span></div>
-    <div class="kpi"><span class="kpi-label">Day P&L</span><span class="kpi-value profit">+₹1,847</span></div>
-    <div class="kpi"><span class="kpi-label">Capital</span><span class="kpi-value">₹11,847</span></div>
-    <div class="kpi"><span class="kpi-label">DD</span><span class="kpi-value">0.0%</span></div>
-    <div class="kpi"><span class="kpi-label">WR</span><span class="kpi-value profit">75%</span></div>
-    <div class="kpi"><span class="kpi-label">Trades</span><span class="kpi-value">4</span></div>
+    <div class="kpi"><span class="kpi-label">Nifty</span><span class="kpi-value" id="nifty-price">—</span></div>
+    <div class="kpi" style="border-right-color:#ffd700"><span class="kpi-label" style="color:#ffd700">Gold</span><span class="kpi-value mono" id="gold-price">—</span></div>
+    <div class="kpi" style="border-right-color:#ff8c00"><span class="kpi-label" style="color:#ff8c00">Crude</span><span class="kpi-value mono" id="crude-price">—</span></div>
+    <div class="kpi"><span class="kpi-label" style="color:var(--profit)">USD/INR</span><span class="kpi-value mono" id="usdinr-price">—</span></div>
+    <div class="kpi"><span class="kpi-label">Day P&L</span><span class="kpi-value">—</span></div>
+    <div class="kpi"><span class="kpi-label">Capital</span><span class="kpi-value">—</span></div>
+    <div class="kpi"><span class="kpi-label">DD</span><span class="kpi-value">—</span></div>
+    <div class="kpi"><span class="kpi-label">WR</span><span class="kpi-value">—</span></div>
+    <div class="kpi"><span class="kpi-label">Trades</span><span class="kpi-value">—</span></div>
     <div class="kpi"><span class="kpi-label">PF</span><span class="kpi-value profit" id="kpi-pf">—</span></div>
     <div class="kpi"><span class="kpi-label">Session</span><span class="kpi-value mono" id="kpi-session" style="font-size:11px">—</span></div>
   </div>
@@ -441,13 +474,7 @@ body.has-api-error .app-main{margin-top:28px;}
   <div class="p1-left">
     <div class="panel-header"><span>Signals</span><span class="count" id="signal-count">0</span></div>
     <div class="signal-list" id="signal-list">
-      <div class="signal-card pullback"><div class="signal-top"><span class="signal-time">13:05</span><span style="display:flex;gap:3px"><span class="badge badge-long">Long</span><span class="badge badge-taken">Taken</span></span></div><div class="signal-strategy">PULLBACK</div><div class="signal-reason">EMA9 pullback to EMA20, RSI 58, ST bullish</div><div class="signal-meta"><span>Conf:<span class="mono profit"> 72</span></span><span class="profit">+₹612</span></div></div>
-      <div class="signal-card stoch"><div class="signal-top"><span class="signal-time">12:20</span><span style="display:flex;gap:3px"><span class="badge badge-long">Long</span><span class="badge badge-taken">Taken</span></span></div><div class="signal-strategy">STOCH_CROSS</div><div class="signal-reason">%K crossed %D oversold, CCI confirm</div><div class="signal-meta"><span>Conf:<span class="mono profit"> 68</span></span><span class="profit">+₹834</span></div></div>
-      <div class="signal-card supertrend"><div class="signal-top"><span class="signal-time">11:35</span><span style="display:flex;gap:3px"><span class="badge badge-long">Long</span><span class="badge badge-taken">Taken</span></span></div><div class="signal-strategy">SUPERTREND</div><div class="signal-reason">ST(10,3)+ST(7,2) aligned, above VWAP</div><div class="signal-meta"><span>Conf:<span class="mono profit"> 74</span></span><span class="profit">+₹921</span></div></div>
-      <div class="signal-card pullback"><div class="signal-top"><span class="signal-time">10:45</span><span style="display:flex;gap:3px"><span class="badge badge-short">Short</span><span class="badge badge-taken">Taken</span></span></div><div class="signal-strategy">PULLBACK</div><div class="signal-reason">EMA9 rejection at EMA50, RSI divergence</div><div class="signal-meta"><span>Conf:<span class="mono"> 65</span></span><span class="loss">-₹520</span></div></div>
-      <div class="signal-card stoch" style="opacity:0.5"><div class="signal-top"><span class="signal-time">10:15</span><span style="display:flex;gap:3px"><span class="badge badge-long">Long</span><span class="badge badge-rejected">Skip</span></span></div><div class="signal-strategy">STOCH_CROSS</div><div class="signal-reason">Dead zone: ADX &lt; 20</div></div>
-      <div class="signal-card pullback" style="opacity:0.5"><div class="signal-top"><span class="signal-time">09:50</span><span style="display:flex;gap:3px"><span class="badge badge-short">Short</span><span class="badge badge-rejected">Skip</span></span></div><div class="signal-strategy">PULLBACK</div><div class="signal-reason">HTF RSI &gt; 40 (bullish bias)</div></div>
-      <div class="signal-card supertrend" style="opacity:0.5"><div class="signal-top"><span class="signal-time">09:35</span><span style="display:flex;gap:3px"><span class="badge badge-long">Long</span><span class="badge badge-rejected">Skip</span></span></div><div class="signal-strategy">SUPERTREND</div><div class="signal-reason">Bar quality too low</div></div>
+      <div style="padding:12px;color:var(--text-muted);font-size:10px">Loading signals...</div>
     </div>
   </div>
   <div class="chart-area">
@@ -460,58 +487,44 @@ body.has-api-error .app-main{margin-top:28px;}
       <button class="active" data-ind="st" style="font-family:var(--font-ui);color:var(--text-secondary);font-size:10px">ST</button>
     </div>
     <div class="chart-overlay-info">
-      <span>O <span class="val">23,462</span></span><span>H <span class="val profit">23,495</span></span><span>L <span class="val loss">23,441</span></span><span>C <span class="val profit">23,479</span></span><span>V <span class="val">1.2M</span></span>
+      <span>O <span class="val">—</span></span><span>H <span class="val">—</span></span><span>L <span class="val">—</span></span><span>C <span class="val">—</span></span><span>V <span class="val">—</span></span>
     </div>
     <div class="candle-chart-mock">
       <div class="candle-chart-svg"></div>
-      <div class="trade-marker m1" title="LONG Entry"></div><div class="trade-marker m2" title="TGT Exit"></div><div class="trade-marker m3" title="LONG Entry"></div>
-      <div class="price-line sl"></div><div class="price-line-label sl">SL 23,340</div>
-      <div class="price-line target"></div><div class="price-line-label target">TGT 23,520</div>
-      <div class="price-line entry"></div><div class="price-line-label entry">Entry 23,452</div>
     </div>
-    <div class="price-axis"><span>23,520</span><span>23,500</span><span class="price-label-live">23,479</span><span>23,460</span><span>23,440</span><span>23,400</span><span>23,360</span><span>23,340</span></div>
+    <div class="price-axis"><span>—</span></div>
   </div>
   <div class="p1-right">
-    <div class="tab-bar"><div class="tab active" onclick="switchTab('rt',0)">Positions</div><div class="tab" onclick="switchTab('rt',1)">Risk</div><div class="tab" onclick="switchTab('rt',2)">Stats</div></div>
+    <div class="tab-bar"><div class="tab active" onclick="switchTab('rt',0)">Positions</div><div class="tab" onclick="switchTab('rt',1)">Markets</div><div class="tab" onclick="switchTab('rt',2)">Risk</div><div class="tab" onclick="switchTab('rt',3)">Stats</div></div>
     <div class="tab-content active" id="rt-0">
-      <div class="panel-header"><span>Open</span><span class="count" id="open-pos-count">0</span></div>
+      <div class="panel-header"><span>Nifty Open</span><span class="count" id="open-pos-count">0</span></div>
       <div id="open-positions">
-        <div class="position-card mock-pos"><div class="pos-header"><div><span class="pos-strategy accent">—</span></div><span class="pos-pnl muted">Waiting...</span></div></div>
+        <div class="position-card"><div class="pos-header"><div><span class="pos-strategy muted">Loading...</span></div><span class="pos-pnl muted">—</span></div></div>
       </div>
+      <div class="panel-header" style="margin-top:2px"><span>Futures Open</span><span class="count" id="futures-pos-count">0</span></div>
+      <div id="live-futures-positions"><div style="padding:8px;color:var(--text-muted);font-size:10px">No futures positions</div></div>
       <div class="panel-header" style="margin-top:2px"><span>Closed</span><span class="count" id="closed-pos-count">0</span></div>
       <div id="closed-positions"></div>
     </div>
     <div class="tab-content" id="rt-1">
+      <div id="live-markets-panel" style="padding:4px 0">
+        <div style="padding:8px;color:var(--text-muted);font-size:10px">Loading markets...</div>
+      </div>
+    </div>
+    <div class="tab-content" id="rt-2">
       <div class="risk-section"><div class="risk-section-title">Capital</div><div class="risk-stat-grid"><div class="risk-stat"><div class="label">Current</div><div class="value profit" id="rt-cap-current">—</div></div><div class="risk-stat"><div class="label">Peak</div><div class="value" id="rt-cap-peak">—</div></div><div class="risk-stat"><div class="label">Start</div><div class="value" id="rt-cap-start">—</div></div><div class="risk-stat"><div class="label">Day %</div><div class="value" id="rt-cap-daypct">—</div></div></div></div>
       <div class="risk-section"><div class="risk-section-title">Drawdown</div><div class="gauge-row"><span class="gauge-label">Current DD</span><span class="gauge-value profit" id="rt-dd-value">—</span></div><div class="gauge-bar"><div class="gauge-fill" id="rt-dd-fill" style="width:0%;background:var(--profit)"></div></div><div class="gauge-markers"><span>0%</span><span style="color:var(--warning)">20%</span><span style="color:var(--loss)">35%</span></div></div>
       <div class="risk-section"><div class="risk-section-title">Daily Loss</div><div class="gauge-row"><span class="gauge-label">Used</span><span class="gauge-value" id="rt-daily-loss">—</span></div><div class="gauge-bar"><div class="gauge-fill" id="rt-daily-fill" style="width:0%;background:var(--accent)"></div></div></div>
       <div class="killswitch-panel"><span class="label">Kill Switch</span><div class="toggle" id="rt-killswitch-toggle"></div></div>
     </div>
-    <div class="tab-content" id="rt-2" style="padding:0"><table class="stats-table"><thead><tr><th>Strategy</th><th>T</th><th>WR</th><th>PnL</th><th>PF</th></tr></thead><tbody><tr><td style="color:#2962ff">PULLBACK</td><td>2</td><td class="profit">50%</td><td class="profit">+92</td><td>1.18</td></tr><tr><td style="color:#ff8c00">STOCH</td><td>1</td><td class="profit">100%</td><td class="profit">+834</td><td>∞</td></tr><tr><td style="color:#9c27b0">SUPERT.</td><td>1</td><td class="profit">100%</td><td class="profit">+921</td><td>∞</td></tr><tr style="border-top:1px solid var(--border);font-weight:600"><td>Total</td><td>4</td><td class="profit">75%</td><td class="profit">+1,847</td><td>3.21</td></tr></tbody></table></div>
+    <div class="tab-content" id="rt-3" style="padding:0"><table class="stats-table"><thead><tr><th>Strategy</th><th>T</th><th>WR</th><th>PnL</th><th>PF</th></tr></thead><tbody id="rt-stats-tbody"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Loading...</td></tr></tbody></table></div>
   </div>
   <div class="p1-bottom">
     <div class="bottom-tabs"><div class="bottom-tab active" onclick="switchTab('bt',0)">Trades</div><div class="bottom-tab" onclick="switchTab('bt',1)">Equity</div><div class="bottom-tab" onclick="switchTab('bt',2)">P&L</div><div class="bottom-tab" onclick="switchTab('bt',3)">Events</div><div class="bottom-tab" onclick="switchTab('bt',4)">System</div></div>
-    <div class="bottom-content active" id="bt-0"><table class="data-table"><thead><tr><th>Date</th><th>Time</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Lots</th><th>Hold</th><th>Exit</th><th>Capital</th></tr></thead><tbody>
-      <tr><td>02 Jun</td><td>13:05</td><td style="font-family:var(--font-ui);font-weight:500">PULLBACK</td><td><span class="badge badge-long">L</span></td><td>102.30</td><td>—</td><td class="profit">+612</td><td>1</td><td>7</td><td><span class="badge badge-taken">OPEN</span></td><td>11,847</td></tr>
-      <tr><td>02 Jun</td><td>12:20</td><td style="font-family:var(--font-ui);font-weight:500">STOCH_CROSS</td><td><span class="badge badge-long">L</span></td><td>98.50</td><td>111.33</td><td class="profit">+834</td><td>1</td><td>7</td><td><span class="badge badge-trail">TRAIL</span></td><td>11,234</td></tr>
-      <tr><td>02 Jun</td><td>11:35</td><td style="font-family:var(--font-ui);font-weight:500">SUPERTREND</td><td><span class="badge badge-long">L</span></td><td>95.20</td><td>109.37</td><td class="profit">+921</td><td>1</td><td>7</td><td><span class="badge badge-tgt">TGT</span></td><td>10,400</td></tr>
-      <tr><td>02 Jun</td><td>10:45</td><td style="font-family:var(--font-ui);font-weight:500">PULLBACK</td><td><span class="badge badge-short">S</span></td><td>104.60</td><td>96.60</td><td class="loss">-520</td><td>1</td><td>7</td><td><span class="badge badge-sl">SL</span></td><td>9,480</td></tr>
-    </tbody></table></div>
-    <div class="bottom-content" id="bt-1"><div style="padding:12px"><svg id="live-equity-svg" viewBox="0 0 900 140" preserveAspectRatio="none" style="width:100%;height:140px"><defs><linearGradient id="eqG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--profit)" stop-opacity="0.15"/><stop offset="100%" stop-color="var(--profit)" stop-opacity="0"/></linearGradient></defs><polyline points="10,130 150,128 290,115 430,105 570,80 710,55 850,30" fill="none" stroke="var(--profit)" stroke-width="1.5"/><polygon points="10,130 150,128 290,115 430,105 570,80 710,55 850,30 850,138 10,138" fill="url(#eqG)"/><text x="850" y="26" fill="var(--profit)" font-size="10" font-family="JetBrains Mono" text-anchor="end">—</text><text x="10" y="126" fill="var(--text-muted)" font-size="9" font-family="JetBrains Mono">—</text></svg></div></div>
-    <div class="bottom-content" id="bt-2"><div style="display:flex;align-items:flex-end;gap:4px;padding:16px;height:100%"><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:45px;width:100%;background:var(--profit);border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">26M</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:20px;width:100%;background:var(--loss);border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">27M</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:65px;width:100%;background:var(--profit);border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">28M</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:30px;width:100%;background:var(--profit);border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">29M</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:55px;width:100%;background:var(--profit);border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">30M</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:80px;width:100%;background:var(--profit);border-radius:2px 2px 0 0;border:1px solid var(--profit)"></div><span style="font-size:8px;color:var(--text-primary);font-family:var(--font-mono);margin-top:3px;font-weight:600">2J</span></div></div></div>
-    <div class="bottom-content" id="bt-3"><div class="event-log">
-      <div class="event-line"><span class="event-time">13:05</span><span class="event-type entry">ENTRY</span><span>PULLBACK LONG | ₹102.30 | SL ₹71.61 | 1 lot | Conf 72</span></div>
-      <div class="event-line"><span class="event-time">12:55</span><span class="event-type exit">EXIT</span><span>STOCH_CROSS | TRAIL @ ₹111.33 | <span class="profit">+₹834</span></span></div>
-      <div class="event-line"><span class="event-time">12:20</span><span class="event-type entry">ENTRY</span><span>STOCH_CROSS LONG | ₹98.50 | SL ₹68.95 | Conf 68</span></div>
-      <div class="event-line"><span class="event-time">12:10</span><span class="event-type exit">EXIT</span><span>SUPERTREND | TGT @ ₹109.37 | <span class="profit">+₹921</span></span></div>
-      <div class="event-line"><span class="event-time">11:35</span><span class="event-type entry">ENTRY</span><span>SUPERTREND LONG | ₹95.20 | SL ₹66.64 | Conf 74</span></div>
-      <div class="event-line"><span class="event-time">11:20</span><span class="event-type exit">EXIT</span><span>PULLBACK SHORT | SL | <span class="loss">-₹520</span></span></div>
-      <div class="event-line"><span class="event-time">10:45</span><span class="event-type entry">ENTRY</span><span>PULLBACK SHORT | ₹104.60 | Conf 65</span></div>
-      <div class="event-line"><span class="event-time">10:15</span><span class="event-type risk">REJECT</span><span>STOCH_CROSS | ADX 18 &lt; 20</span></div>
-      <div class="event-line"><span class="event-time">09:50</span><span class="event-type risk">REJECT</span><span>PULLBACK SHORT | HTF RSI 46 (bullish bias)</span></div>
-      <div class="event-line"><span class="event-time">09:35</span><span class="event-type risk">REJECT</span><span>SUPERTREND | Bar quality low</span></div>
-      <div class="event-line"><span class="event-time">09:15</span><span class="event-type system">START</span><span>DAY START | PAPER | ₹10,000 | V11 | Lot 65</span></div>
-    </div></div>
+    <div class="bottom-content active" id="bt-0"><table class="data-table"><thead><tr><th>Date</th><th>Time</th><th>Mkt</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Lots</th><th>Hold</th><th>Exit</th></tr></thead><tbody id="trades-tbody"><tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px">Loading trades...</td></tr></tbody></table></div>
+    <div class="bottom-content" id="bt-1"><div style="padding:12px"><svg id="live-equity-svg" viewBox="0 0 900 140" preserveAspectRatio="none" style="width:100%;height:140px"></svg></div></div>
+    <div class="bottom-content" id="bt-2"><div id="recent-daily-pnl" style="display:flex;align-items:flex-end;gap:4px;padding:16px;height:100%;min-height:80px;color:var(--text-muted);font-size:10px">Loading daily P&amp;L...</div></div>
+    <div class="bottom-content" id="bt-3"><div class="event-log" id="event-log-live"><div class="event-line" style="color:var(--text-muted);padding:12px">Loading events...</div></div></div>
     <div class="bottom-content" id="bt-4"><div class="system-grid" id="system-grid">
       <div class="system-card"><div class="label">Engine</div><div class="value" data-sys="engine">—</div></div>
       <div class="system-card"><div class="label">Broker</div><div class="value" data-sys="broker">—</div></div>
@@ -521,6 +534,11 @@ body.has-api-error .app-main{margin-top:28px;}
       <div class="system-card"><div class="label">Watchdog</div><div class="value" data-sys="pid">—</div></div>
       <div class="system-card"><div class="label">Alerts</div><div class="value" data-sys="alerts">—</div></div>
       <div class="system-card"><div class="label">Sq. Off</div><div class="value" data-sys="sqoff">—</div></div>
+      <div class="system-card" style="grid-column:span 2;border-top:1px solid var(--border);padding-top:4px"><div class="label" style="font-weight:700;color:var(--accent)">Multi-Asset Engine</div><div class="value" data-sys="ma-status">—</div></div>
+      <div class="system-card"><div class="label" style="color:#ffd700">Gold</div><div class="value" data-sys="ma-gold">—</div></div>
+      <div class="system-card"><div class="label" style="color:#ff8c00">Crude</div><div class="value" data-sys="ma-crude">—</div></div>
+      <div class="system-card"><div class="label" style="color:var(--profit)">USD/INR</div><div class="value" data-sys="ma-usdinr">—</div></div>
+      <div class="system-card"><div class="label">Futures Cap.</div><div class="value" data-sys="ma-capital">—</div></div>
       <div class="system-card"><div class="label">Session</div><div class="value" data-sys="session">—</div></div>
     </div></div>
   </div>
@@ -564,113 +582,21 @@ body.has-api-error .app-main{margin-top:28px;}
 <div class="page" id="page-2">
 <div class="page-title">Strategy Deep Dive <span class="page-subtitle">Per-strategy performance breakdown</span></div>
 <div class="scroll-y" id="strategy-deep-dive">
-
-<!-- PULLBACK -->
-<div class="strategy-section" data-strategy="PULLBACK">
-  <div class="strategy-header"><div class="strategy-dot" style="background:#2962ff"></div><div class="strategy-name">PULLBACK</div><span class="badge badge-taken" style="font-size:10px">Active</span></div>
-  <div class="strategy-stats-grid">
-    <div class="stat-card"><div class="label">Trades</div><div class="value">148</div></div>
-    <div class="stat-card"><div class="label">Win Rate</div><div class="value profit">72%</div></div>
-    <div class="stat-card"><div class="label">Profit Factor</div><div class="value profit">2.41</div></div>
-    <div class="stat-card"><div class="label">Avg Win</div><div class="value profit">+₹680</div></div>
-    <div class="stat-card"><div class="label">Avg Loss</div><div class="value loss">-₹520</div></div>
-    <div class="stat-card"><div class="label">Best</div><div class="value profit">+₹2,340</div></div>
-    <div class="stat-card"><div class="label">Worst</div><div class="value loss">-₹1,180</div></div>
-  </div>
-  <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Entry Conditions</div>
-  <div class="conditions-list">
-    <div class="condition-chip"><span>RSI 5m</span><span class="cv profit">40-70</span></div>
-    <div class="condition-chip"><span>HTF RSI</span><span class="cv">aligned</span></div>
-    <div class="condition-chip"><span>EMA9→EMA20</span><span class="cv accent">pullback</span></div>
-    <div class="condition-chip"><span>ADX</span><span class="cv">&gt;20</span></div>
-    <div class="condition-chip"><span>Supertrend</span><span class="cv profit">aligned</span></div>
-    <div class="condition-chip"><span>Bar Quality</span><span class="cv">&gt;threshold</span></div>
-    <div class="condition-chip"><span>Cooldown</span><span class="cv">3 bars</span></div>
-  </div>
-  <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Win/Loss by Hour of Day</div>
-  <div class="heatmap-grid">
-    <div class="heatmap-label"></div><div class="heatmap-label" style="justify-content:center">9:30</div><div class="heatmap-label" style="justify-content:center">10:00</div><div class="heatmap-label" style="justify-content:center">10:30</div><div class="heatmap-label" style="justify-content:center">11:00</div><div class="heatmap-label" style="justify-content:center">11:30</div><div class="heatmap-label" style="justify-content:center">12:00</div><div class="heatmap-label" style="justify-content:center">12:30</div><div class="heatmap-label" style="justify-content:center">13:00</div><div class="heatmap-label" style="justify-content:center">13:30</div><div class="heatmap-label" style="justify-content:center">14:00</div><div class="heatmap-label" style="justify-content:center">14:30</div>
-    <div class="heatmap-label">Mon</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div>
-    <div class="heatmap-label">Tue</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div>
-    <div class="heatmap-label">Wed</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div>
-    <div class="heatmap-label">Thu</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div>
-    <div class="heatmap-label">Fri</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)">L</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div><div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)">W</div>
-  </div>
-  <div class="cumulative-chart"><svg viewBox="0 0 800 55" preserveAspectRatio="none"><defs><linearGradient id="pCum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2962ff" stop-opacity="0.2"/><stop offset="100%" stop-color="#2962ff" stop-opacity="0"/></linearGradient></defs><polyline points="0,50 50,48 100,45 150,46 200,40 250,38 300,35 350,37 400,30 450,25 500,22 550,24 600,18 650,14 700,10 750,8 800,5" fill="none" stroke="#2962ff" stroke-width="1.5"/><polygon points="0,50 50,48 100,45 150,46 200,40 250,38 300,35 350,37 400,30 450,25 500,22 550,24 600,18 650,14 700,10 750,8 800,5 800,55 0,55" fill="url(#pCum)"/></svg></div>
-</div>
-
-<!-- STOCH_CROSS -->
-<div class="strategy-section" data-strategy="STOCH">
-  <div class="strategy-header"><div class="strategy-dot" style="background:#ff8c00"></div><div class="strategy-name">STOCH_CROSS</div><span class="badge badge-taken" style="font-size:10px">Active</span></div>
-  <div class="strategy-stats-grid">
-    <div class="stat-card"><div class="label">Trades</div><div class="value">92</div></div>
-    <div class="stat-card"><div class="label">Win Rate</div><div class="value profit">78%</div></div>
-    <div class="stat-card"><div class="label">Profit Factor</div><div class="value profit">3.12</div></div>
-    <div class="stat-card"><div class="label">Avg Win</div><div class="value profit">+₹720</div></div>
-    <div class="stat-card"><div class="label">Avg Loss</div><div class="value loss">-₹480</div></div>
-    <div class="stat-card"><div class="label">Best</div><div class="value profit">+₹1,890</div></div>
-    <div class="stat-card"><div class="label">Worst</div><div class="value loss">-₹980</div></div>
-  </div>
-  <div class="conditions-list">
-    <div class="condition-chip"><span>%K×%D</span><span class="cv profit">cross up</span></div>
-    <div class="condition-chip"><span>CCI</span><span class="cv">confirm</span></div>
-    <div class="condition-chip"><span>Williams %R</span><span class="cv">&lt;-80</span></div>
-    <div class="condition-chip"><span>ADX</span><span class="cv">&gt;20</span></div>
-    <div class="condition-chip"><span>HTF RSI</span><span class="cv">aligned</span></div>
-  </div>
-  <div class="cumulative-chart"><svg viewBox="0 0 800 55" preserveAspectRatio="none"><defs><linearGradient id="sCum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff8c00" stop-opacity="0.2"/><stop offset="100%" stop-color="#ff8c00" stop-opacity="0"/></linearGradient></defs><polyline points="0,50 80,47 160,42 240,38 320,35 400,30 480,26 560,20 640,15 720,10 800,6" fill="none" stroke="#ff8c00" stroke-width="1.5"/><polygon points="0,50 80,47 160,42 240,38 320,35 400,30 480,26 560,20 640,15 720,10 800,6 800,55 0,55" fill="url(#sCum)"/></svg></div>
-</div>
-
-<!-- SUPERTREND -->
-<div class="strategy-section" style="border:none" data-strategy="SUPERTREND">
-  <div class="strategy-header"><div class="strategy-dot" style="background:#9c27b0"></div><div class="strategy-name">SUPERTREND</div><span class="badge badge-taken" style="font-size:10px">Active</span></div>
-  <div class="strategy-stats-grid">
-    <div class="stat-card"><div class="label">Trades</div><div class="value">76</div></div>
-    <div class="stat-card"><div class="label">Win Rate</div><div class="value profit">80%</div></div>
-    <div class="stat-card"><div class="label">Profit Factor</div><div class="value profit">3.65</div></div>
-    <div class="stat-card"><div class="label">Avg Win</div><div class="value profit">+₹810</div></div>
-    <div class="stat-card"><div class="label">Avg Loss</div><div class="value loss">-₹440</div></div>
-    <div class="stat-card"><div class="label">Best</div><div class="value profit">+₹2,650</div></div>
-    <div class="stat-card"><div class="label">Worst</div><div class="value loss">-₹870</div></div>
-  </div>
-  <div class="conditions-list">
-    <div class="condition-chip"><span>ST(10,3)</span><span class="cv profit">aligned</span></div>
-    <div class="condition-chip"><span>ST(7,2)</span><span class="cv profit">aligned</span></div>
-    <div class="condition-chip"><span>Price vs VWAP</span><span class="cv">above</span></div>
-    <div class="condition-chip"><span>ADX</span><span class="cv">&gt;22</span></div>
-    <div class="condition-chip"><span>RSI</span><span class="cv">45-65</span></div>
-  </div>
-  <div class="cumulative-chart"><svg viewBox="0 0 800 55" preserveAspectRatio="none"><defs><linearGradient id="tCum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9c27b0" stop-opacity="0.2"/><stop offset="100%" stop-color="#9c27b0" stop-opacity="0"/></linearGradient></defs><polyline points="0,50 100,46 200,40 300,34 400,28 500,20 600,14 700,8 800,4" fill="none" stroke="#9c27b0" stroke-width="1.5"/><polygon points="0,50 100,46 200,40 300,34 400,28 500,20 600,14 700,8 800,4 800,55 0,55" fill="url(#tCum)"/></svg></div>
-</div>
+  <div style="padding:24px;color:var(--text-muted);font-size:11px">Loading strategy data...</div>
 </div>
 </div>
 
 <!-- ═════════════════════════════════════════════════════════════ -->
-<!-- PAGE 4: BACKTEST RESULTS -->
+<!-- PAGE 4: TRADE HISTORY -->
 <!-- ═════════════════════════════════════════════════════════════ -->
 <div class="page" id="page-3">
-<div class="page-title">Backtest Results <span class="page-subtitle">6-month walk-forward backtest with realistic costs</span></div>
-<div class="backtest-controls">
-  <div><label>Capital</label><br><input value="₹10,000" style="width:80px"></div>
-  <div><label>Period</label><br><input value="130 days" style="width:80px"></div>
-  <div><label>Lot Size</label><br><input value="65" style="width:60px"></div>
-  <div><label>Walk-Forward</label><br><select><option>70/30 split</option><option>80/20 split</option></select></div>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:6px"><input type="checkbox" id="wdraw" checked><label for="wdraw" style="font-size:10px;color:var(--text-secondary)">Withdrawals (30K/1L)</label></div>
-</div>
+<div class="page-title">Trade History <span class="page-subtitle">Equity curve and monthly breakdown from live trades</span></div>
 <div class="scroll-y">
 <div class="backtest-grid">
-  <div class="bt-chart" style="grid-column:1/3"><div class="bt-chart-title">Equity Curve + Drawdown</div><svg id="equity-curve-svg" viewBox="0 0 900 120" preserveAspectRatio="none"><defs><linearGradient id="btEq" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--profit)" stop-opacity="0.15"/><stop offset="100%" stop-color="var(--profit)" stop-opacity="0"/></linearGradient></defs><polyline points="10,110 50,108 90,100 130,95 170,85 210,90 250,78 290,70 330,65 370,60 410,55 450,62 490,50 530,42 570,38 610,30 650,25 690,35 730,22 770,18 810,12 850,8" fill="none" stroke="var(--profit)" stroke-width="1.5"/><polygon points="10,110 50,108 90,100 130,95 170,85 210,90 250,78 290,70 330,65 370,60 410,55 450,62 490,50 530,42 570,38 610,30 650,25 690,35 730,22 770,18 810,12 850,8 850,118 10,118" fill="url(#btEq)"/><polyline points="10,118 50,118 90,118 130,118 170,118 210,114 250,118 290,118 330,118 370,118 410,118 450,112 490,118 530,118 570,118 610,118 650,118 690,110 730,118 770,118 810,118 850,118" fill="none" stroke="var(--loss)" stroke-width="0.8" opacity="0.5"/><text x="850" y="6" fill="var(--profit)" font-size="9" font-family="JetBrains Mono" text-anchor="end">₹5,66,400</text><text x="10" y="108" fill="var(--text-muted)" font-size="8" font-family="JetBrains Mono">₹10,000</text></svg></div>
-  <div class="bt-chart"><div class="bt-chart-title">Monthly P&L</div><div style="display:flex;align-items:flex-end;gap:3px;height:100px"><div style="flex:1;height:50px;background:var(--profit);border-radius:2px 2px 0 0"></div><div style="flex:1;height:70px;background:var(--profit);border-radius:2px 2px 0 0"></div><div style="flex:1;height:40px;background:var(--profit);border-radius:2px 2px 0 0"></div><div style="flex:1;height:85px;background:var(--profit);border-radius:2px 2px 0 0"></div><div style="flex:1;height:60px;background:var(--profit);border-radius:2px 2px 0 0"></div><div style="flex:1;height:90px;background:var(--profit);border-radius:2px 2px 0 0"></div></div><div style="display:flex;gap:3px;margin-top:4px"><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">Dec</span><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">Jan</span><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">Feb</span><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">Mar</span><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">Apr</span><span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">May</span></div></div>
-  <div class="bt-chart"><div class="bt-chart-title">Walk-Forward Split</div><div class="grid-2" style="gap:8px;margin-top:4px"><div class="stat-card"><div class="label">In-Sample (70%)</div><div class="value profit">₹3,24,000</div><div style="font-size:9px;color:var(--text-muted);margin-top:2px">91 days | WR 76% | PF 2.8</div></div><div class="stat-card"><div class="label">Out-of-Sample (30%)</div><div class="value profit">₹2,42,400</div><div style="font-size:9px;color:var(--text-muted);margin-top:2px">39 days | WR 74% | PF 2.5</div></div></div></div>
-  <div class="bt-chart" style="grid-column:1/3"><div class="bt-chart-title">Monthly Breakdown</div><table class="data-table" style="font-size:10px"><thead><tr><th>Month</th><th>Trades</th><th>Wins</th><th>WR</th><th>P&L</th><th>Max DD</th><th>PF</th><th>Withdrawals</th></tr></thead><tbody>
-    <tr><td style="font-family:var(--font-ui)">Dec 2025</td><td>42</td><td>31</td><td class="profit">74%</td><td class="profit">+₹18,420</td><td class="loss">-8.2%</td><td>2.34</td><td>—</td></tr>
-    <tr><td style="font-family:var(--font-ui)">Jan 2026</td><td>48</td><td>37</td><td class="profit">77%</td><td class="profit">+₹45,800</td><td class="loss">-6.1%</td><td>2.88</td><td class="warning">₹30K</td></tr>
-    <tr><td style="font-family:var(--font-ui)">Feb 2026</td><td>38</td><td>28</td><td class="profit">74%</td><td class="profit">+₹62,300</td><td class="loss">-5.4%</td><td>2.65</td><td class="warning">₹60K</td></tr>
-    <tr><td style="font-family:var(--font-ui)">Mar 2026</td><td>52</td><td>41</td><td class="profit">79%</td><td class="profit">+₹1,28,500</td><td class="loss">-4.8%</td><td>3.12</td><td class="warning">₹90K</td></tr>
-    <tr><td style="font-family:var(--font-ui)">Apr 2026</td><td>44</td><td>33</td><td class="profit">75%</td><td class="profit">+₹1,45,200</td><td class="loss">-7.2%</td><td>2.71</td><td class="warning">₹90K</td></tr>
-    <tr><td style="font-family:var(--font-ui)">May 2026</td><td>50</td><td>40</td><td class="profit">80%</td><td class="profit">+₹1,56,180</td><td class="loss">-3.9%</td><td>3.42</td><td class="warning">₹120K</td></tr>
-    <tr style="font-weight:600;border-top:1px solid var(--border)"><td style="font-family:var(--font-ui)">Total</td><td>274</td><td>210</td><td class="profit">77%</td><td class="profit">+₹5,56,400</td><td class="loss">-8.2%</td><td>2.85</td><td class="warning">₹3,90,000</td></tr>
-  </tbody></table></div>
+  <div class="bt-chart" style="grid-column:1/3"><div class="bt-chart-title">Equity Curve + Drawdown</div><svg id="equity-curve-svg" viewBox="0 0 900 120" preserveAspectRatio="none"></svg></div>
+  <div class="bt-chart"><div class="bt-chart-title">Monthly P&amp;L</div><div id="monthly-pnl-bars" style="display:flex;align-items:flex-end;gap:3px;height:100px;color:var(--text-muted);font-size:10px;padding:8px">Loading...</div><div id="monthly-pnl-labels" style="display:flex;gap:3px;margin-top:4px"></div></div>
+  <div class="bt-chart"><div class="bt-chart-title">Summary</div><div class="grid-2" style="gap:8px;margin-top:4px" id="history-summary"><div class="stat-card"><div class="label">Total Trades</div><div class="value">—</div></div><div class="stat-card"><div class="label">Total P&amp;L</div><div class="value">—</div></div></div></div>
+  <div class="bt-chart" style="grid-column:1/3"><div class="bt-chart-title">Monthly Breakdown</div><table class="data-table" style="font-size:10px"><thead><tr><th>Month</th><th>Trades</th><th>Wins</th><th>WR</th><th>P&amp;L</th><th>PF</th></tr></thead><tbody id="monthly-breakdown-tbody"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">Loading...</td></tr></tbody></table></div>
 </div>
 </div>
 </div>
@@ -682,19 +608,10 @@ body.has-api-error .app-main{margin-top:28px;}
 <div class="page-title">Risk Console <span class="page-subtitle">Capital management, drawdown monitoring, risk gate status</span></div>
 <div class="scroll-y">
 <div class="risk-grid">
-  <div class="risk-chart" style="grid-column:1/3"><div class="risk-chart-title">Capital Timeline</div><svg id="capital-timeline-svg" viewBox="0 0 900 100" preserveAspectRatio="none"><defs><linearGradient id="capG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--profit)" stop-opacity="0.12"/><stop offset="100%" stop-color="var(--profit)" stop-opacity="0"/></linearGradient></defs><polyline points="10,90 90,88 170,82 250,75 330,68 410,60 490,52 570,44 650,35 730,26 810,18 890,10" fill="none" stroke="var(--profit)" stroke-width="1.5"/><polyline points="10,90 90,88 170,82 250,75 330,68 410,60 490,52 570,44 650,35 730,26 810,18 890,10" fill="none" stroke="var(--text-muted)" stroke-width="0.5" stroke-dasharray="3,3"/><polygon points="10,90 90,88 170,82 250,75 330,68 410,60 490,52 570,44 650,35 730,26 810,18 890,10 890,98 10,98" fill="url(#capG)"/></svg></div>
-  <div class="risk-chart"><div class="risk-chart-title">Drawdown Over Time</div><svg viewBox="0 0 400 100" preserveAspectRatio="none"><rect x="0" y="0" width="400" height="100" fill="transparent"/><line x1="0" y1="59" x2="400" y2="59" stroke="var(--warning)" stroke-width="0.5" stroke-dasharray="3,3"/><text x="402" y="61" fill="var(--warning)" font-size="7" font-family="JetBrains Mono">20%</text><line x1="0" y1="85" x2="400" y2="85" stroke="var(--loss)" stroke-width="0.5" stroke-dasharray="3,3"/><text x="402" y="87" fill="var(--loss)" font-size="7" font-family="JetBrains Mono">35%</text><polyline points="10,5 50,8 90,18 130,12 170,6 210,22 250,14 290,8 330,28 370,10 390,5" fill="none" stroke="var(--loss)" stroke-width="1.2" opacity="0.7"/></svg></div>
-  <div class="risk-chart"><div class="risk-chart-title">Position Sizing History</div><div style="display:flex;align-items:flex-end;gap:2px;height:80px"><div style="flex:1;height:20px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.7"></div><div style="flex:1;height:20px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.7"></div><div style="flex:1;height:20px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.7"></div><div style="flex:1;height:40px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.8"></div><div style="flex:1;height:40px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.8"></div><div style="flex:1;height:40px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.8"></div><div style="flex:1;height:60px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.9"></div><div style="flex:1;height:60px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.9"></div><div style="flex:1;height:60px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.9"></div><div style="flex:1;height:80px;background:var(--accent);border-radius:2px 2px 0 0"></div></div><div style="display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)"><span>1 lot</span><span>2 lots</span><span>3 lots</span></div></div>
-  <div class="risk-chart" style="grid-column:1/3"><div class="risk-chart-title">Risk Gates Status</div><div class="risk-gates-grid">
-    <div class="risk-gate"><div class="gate-name">Min Capital</div><div class="gate-status profit">₹11,847</div><div style="font-size:8px;color:var(--text-muted)">Threshold: ₹3,000</div><div class="gate-bar"><div class="gate-fill" style="width:100%;background:var(--profit)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Daily Loss</div><div class="gate-status">26%</div><div style="font-size:8px;color:var(--text-muted)">Limit: 20% of capital</div><div class="gate-bar"><div class="gate-fill" style="width:26%;background:var(--accent)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Weekly Loss</div><div class="gate-status profit">0%</div><div style="font-size:8px;color:var(--text-muted)">Limit: 10%</div><div class="gate-bar"><div class="gate-fill" style="width:0%;background:var(--profit)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Consec. Loss</div><div class="gate-status profit">0</div><div style="font-size:8px;color:var(--text-muted)">Limit: 2</div><div class="gate-bar"><div class="gate-fill" style="width:0%;background:var(--profit)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Drawdown</div><div class="gate-status profit">0.0%</div><div style="font-size:8px;color:var(--text-muted)">Half@20% Halt@35%</div><div class="gate-bar"><div class="gate-fill" style="width:0%;background:var(--profit)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">VIX</div><div class="gate-status">14.2</div><div style="font-size:8px;color:var(--text-muted)">Threshold: 18.0</div><div class="gate-bar"><div class="gate-fill" style="width:79%;background:var(--accent)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Expiry Day</div><div class="gate-status warning">Tuesday</div><div style="font-size:8px;color:var(--text-muted)">Skip: Disabled</div><div class="gate-bar"><div class="gate-fill" style="width:100%;background:var(--warning)"></div></div></div>
-    <div class="risk-gate"><div class="gate-name">Kill Switch</div><div class="gate-status profit">OFF</div><div style="font-size:8px;color:var(--text-muted)">No halt flag</div><div class="gate-bar"><div class="gate-fill" style="width:0%;background:var(--profit)"></div></div></div>
-  </div></div>
+  <div class="risk-chart" style="grid-column:1/3"><div class="risk-chart-title">Capital Timeline</div><svg id="capital-timeline-svg" viewBox="0 0 900 100" preserveAspectRatio="none"></svg></div>
+  <div class="risk-chart"><div class="risk-chart-title">Drawdown Over Time</div><svg id="drawdown-svg" viewBox="0 0 400 100" preserveAspectRatio="none"></svg></div>
+  <div class="risk-chart"><div class="risk-chart-title">Position Sizing History</div><div id="lots-history-bars" style="display:flex;align-items:flex-end;gap:2px;height:80px;color:var(--text-muted);font-size:10px;padding:8px">Loading...</div></div>
+  <div class="risk-chart" style="grid-column:1/3"><div class="risk-chart-title">Risk Gates Status</div><div class="risk-gates-grid" id="risk-gates-grid"></div></div>
   <div class="risk-chart" style="grid-column:1/3"><div class="risk-chart-title">Kill Switch Log</div><table class="data-table" style="font-size:10px"><thead><tr><th>Timestamp</th><th>Reason</th><th>Duration</th><th>Capital at Halt</th><th>Action</th></tr></thead><tbody><tr><td style="color:var(--text-muted)">—</td><td colspan="4" style="color:var(--text-muted);font-family:var(--font-ui)">No kill switch events recorded</td></tr></tbody></table></div>
 </div>
 </div>
@@ -716,57 +633,8 @@ body.has-api-error .app-main{margin-top:28px;}
   <button class="filter-btn" data-journal="SUPERT">SUPERT.</button>
   <div style="margin-left:auto"><input class="filter-input" id="journal-search" placeholder="Search trades..."></div>
 </div>
-<div class="scroll-y" style="padding:8px 16px">
-  <div class="journal-card" onclick="toggleJournal(this)">
-    <div class="journal-collapsed">
-      <div class="journal-left"><span class="journal-time">02 Jun 13:05</span><span class="journal-strategy" style="color:#2962ff">PULLBACK</span><span class="badge badge-long">Long</span></div>
-      <div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl profit" style="font-size:12px">+₹612</span><span class="badge badge-taken">OPEN</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div>
-    </div>
-    <div class="journal-expanded">
-      <div class="journal-detail-grid">
-        <div class="journal-mini-chart"><svg viewBox="0 0 260 120" preserveAspectRatio="none"><line x1="130" y1="0" x2="130" y2="120" stroke="var(--accent)" stroke-width="0.5" stroke-dasharray="3,2"/><text x="130" y="116" fill="var(--accent)" font-size="7" font-family="JetBrains Mono" text-anchor="middle">ENTRY</text><line x1="19" y1="90" x2="19" y2="70" stroke="var(--candle-wick)" stroke-width="1"/><rect x="15" y="74" width="8" height="12" fill="var(--candle-up)" rx="1"/><line x1="39" y1="82" x2="39" y2="62" stroke="var(--candle-wick)" stroke-width="1"/><rect x="35" y="66" width="8" height="10" fill="var(--candle-up)" rx="1"/><line x1="59" y1="74" x2="59" y2="55" stroke="var(--candle-wick)" stroke-width="1"/><rect x="55" y="58" width="8" height="12" fill="var(--candle-down)" rx="1"/><line x1="79" y1="70" x2="79" y2="50" stroke="var(--candle-wick)" stroke-width="1"/><rect x="75" y="54" width="8" height="12" fill="var(--candle-up)" rx="1"/><line x1="99" y1="62" x2="99" y2="44" stroke="var(--candle-wick)" stroke-width="1"/><rect x="95" y="48" width="8" height="10" fill="var(--candle-up)" rx="1"/><line x1="119" y1="56" x2="119" y2="38" stroke="var(--candle-wick)" stroke-width="1"/><rect x="115" y="42" width="8" height="10" fill="var(--candle-down)" rx="1"/><line x1="139" y1="50" x2="139" y2="32" stroke="var(--candle-wick)" stroke-width="1"/><rect x="135" y="35" width="8" height="12" fill="var(--candle-up)" rx="1"/><line x1="159" y1="42" x2="159" y2="26" stroke="var(--candle-wick)" stroke-width="1"/><rect x="155" y="28" width="8" height="12" fill="var(--candle-up)" rx="1"/><line x1="179" y1="36" x2="179" y2="20" stroke="var(--candle-wick)" stroke-width="1"/><rect x="175" y="22" width="8" height="10" fill="var(--candle-up)" rx="1"/><line x1="199" y1="30" x2="199" y2="15" stroke="var(--candle-wick)" stroke-width="1"/><rect x="195" y="18" width="8" height="8" fill="var(--candle-up)" rx="1"/><line x1="219" y1="24" x2="219" y2="10" stroke="var(--candle-wick)" stroke-width="1"/><rect x="215" y="12" width="8" height="10" fill="var(--candle-up)" rx="1" opacity="0.7"/></svg></div>
-        <div>
-          <div style="font-size:11px;font-weight:600;margin-bottom:6px">Signal Reasoning</div>
-          <div style="font-size:10px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">EMA9 pullback to EMA20 support zone. RSI(5m) at 58 confirms momentum. Supertrend(10,3) and ST(7,2) both bullish. HTF RSI(15m) at 61 confirms uptrend bias. ADX at 28.5 shows trending market. Volume 1.4x above average.</div>
-          <div style="font-size:10px;font-weight:600;margin-bottom:4px">Indicators at Entry</div>
-          <div class="journal-indicators">
-            <div class="journal-ind-item"><span class="ji-label">RSI 5m</span><span class="ji-value">58.2</span></div>
-            <div class="journal-ind-item"><span class="ji-label">RSI 15m</span><span class="ji-value">61.4</span></div>
-            <div class="journal-ind-item"><span class="ji-label">Stoch %K</span><span class="ji-value">72.1</span></div>
-            <div class="journal-ind-item"><span class="ji-label">ADX</span><span class="ji-value accent">28.5</span></div>
-            <div class="journal-ind-item"><span class="ji-label">EMA9</span><span class="ji-value">23,471</span></div>
-            <div class="journal-ind-item"><span class="ji-label">EMA20</span><span class="ji-value">23,458</span></div>
-            <div class="journal-ind-item"><span class="ji-label">VWAP</span><span class="ji-value">23,463</span></div>
-            <div class="journal-ind-item"><span class="ji-label">BB%B</span><span class="ji-value">0.68</span></div>
-            <div class="journal-ind-item"><span class="ji-label">ST Dir</span><span class="ji-value profit">Bull</span></div>
-          </div>
-          <div style="font-size:10px;font-weight:600;margin-top:8px;margin-bottom:4px">Cost Breakdown</div>
-          <div class="cost-breakdown">
-            <div class="cost-item"><div class="ci-label">Brokerage</div><div class="ci-value">₹40</div></div>
-            <div class="cost-item"><div class="ci-label">Spread</div><div class="ci-value">₹39</div></div>
-            <div class="cost-item"><div class="ci-label">STT</div><div class="ci-value">₹3.6</div></div>
-            <div class="cost-item"><div class="ci-label">Exchange</div><div class="ci-value">₹7.0</div></div>
-            <div class="cost-item"><div class="ci-label">Impact</div><div class="ci-value">₹0</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="journal-card" onclick="toggleJournal(this)">
-    <div class="journal-collapsed"><div class="journal-left"><span class="journal-time">02 Jun 12:20</span><span class="journal-strategy" style="color:#ff8c00">STOCH_CROSS</span><span class="badge badge-long">Long</span></div><div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl profit" style="font-size:12px">+₹834</span><span class="badge badge-trail">TRAIL</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div></div>
-    <div class="journal-expanded"><div style="font-size:10px;color:var(--text-secondary);padding:4px">%K crossed above %D in oversold zone. CCI confirmed momentum shift. Trail stop activated at ₹105.8, locked in profit. Exited when trail floor hit at ₹111.33.</div></div>
-  </div>
-
-  <div class="journal-card" onclick="toggleJournal(this)">
-    <div class="journal-collapsed"><div class="journal-left"><span class="journal-time">02 Jun 11:35</span><span class="journal-strategy" style="color:#9c27b0">SUPERTREND</span><span class="badge badge-long">Long</span></div><div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl profit" style="font-size:12px">+₹921</span><span class="badge badge-tgt">TGT</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div></div>
-    <div class="journal-expanded"><div style="font-size:10px;color:var(--text-secondary);padding:4px">Both ST(10,3) and ST(7,2) flipped bullish. Price above VWAP. ADX 30+ trending. Hit target premium at ₹109.37. Best trade of the day.</div></div>
-  </div>
-
-  <div class="journal-card" onclick="toggleJournal(this)">
-    <div class="journal-collapsed"><div class="journal-left"><span class="journal-time">02 Jun 10:45</span><span class="journal-strategy" style="color:#2962ff">PULLBACK</span><span class="badge badge-short">Short</span></div><div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl loss" style="font-size:12px">-₹520</span><span class="badge badge-sl">SL</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div></div>
-    <div class="journal-expanded"><div style="font-size:10px;color:var(--text-secondary);padding:4px"><span style="color:var(--loss);font-weight:600">What went wrong:</span> Took a short against the developing bullish trend. EMA9 rejection at EMA50 looked bearish, but the broader trend was already turning up. HTF RSI at 42 was near the bullish threshold. SL hit as Nifty continued to rally.</div></div>
-  </div>
+<div class="scroll-y" style="padding:8px 16px" id="journal-list">
+  <div style="text-align:center;color:var(--text-muted);padding:24px;font-size:11px">Loading journal...</div>
 </div>
 </div>
 
@@ -788,35 +656,10 @@ body.has-api-error .app-main{margin-top:28px;}
 </div>
 <div class="scroll-y">
 <div class="log-viewer" id="log-viewer">
-  <div class="log-line"><span class="log-ts">13:10:05</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Tick: Nifty 23,479.35 | Volume: 1,234,567</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Bar #75 closed: O=23462 H=23495 L=23441 C=23479 V=42380</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">Indicators: RSI5=58.2 RSI15=61.4 Stoch=72.1 ADX=28.5 EMA9=23471 EMA20=23458 VWAP=23463 BB%B=0.68 ST=BULL STf=BULL ATR=42.3</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">Scanning bar #75 for signals... time=13:10 within entry window [09:30-14:30]</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">PULLBACK check: EMA9(23471) near EMA20(23458), diff=13pts, within pullback zone. RSI=58.2 in [40-70]. ST aligned=True. → No signal: already have active PULLBACK position</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">STOCH_CROSS check: %K=72.1, not in oversold zone [&lt;25]. → No crossover signal</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">SUPERTREND check: ST(10,3)=BULL, ST(7,2)=BULL, aligned. But cooldown active (last signal bar #70). → Skipped</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">No new signals on bar #75</span></div>
-  <div class="log-line"><span class="log-ts">13:10:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Position update: PULLBACK LONG | prem=111.72 (peak=113.40) | trail_floor=103.2 | unrealized=+₹612</span></div>
-  <div class="log-line"><span class="log-ts">13:05:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Bar #74 closed: O=23448 H=23468 L=23440 C=23462 V=38920</span></div>
-  <div class="log-line"><span class="log-ts">13:05:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">Indicators: RSI5=55.1 RSI15=60.2 Stoch=68.4 ADX=27.8 EMA9=23465 EMA20=23452 VWAP=23460 BB%B=0.62 ST=BULL STf=BULL</span></div>
-  <div class="log-line"><span class="log-ts">13:05:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">PULLBACK LONG signal fired: conf=72, RSI=55.1, HTF_RSI=60.2, EMA9 pullback to EMA20</span></div>
-  <div class="log-line"><span class="log-ts">13:05:00</span><span class="log-level info">INFO</span><span class="log-module">risk</span><span class="log-msg">Risk evaluate: APPROVED | lots=1 | capital=₹10,400 | daily_loss_used=₹520/₹2,000 | DD=0.0%</span></div>
-  <div class="log-line"><span class="log-ts">13:05:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">PAPER_ENTRY: PULLBACK LONG | premium=₹102.30 | SL=₹71.61 | lots=1 (65 qty) | target=₹153.45</span></div>
-  <div class="log-line"><span class="log-ts">13:05:01</span><span class="log-level info">INFO</span><span class="log-module">alerts</span><span class="log-msg">Slack alert sent: PAPER_ENTRY PULLBACK LONG @ ₹102.30</span></div>
-  <div class="log-line"><span class="log-ts">12:55:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Position update: STOCH_CROSS LONG | trail_floor=111.33 hit | EXIT reason=TRAIL</span></div>
-  <div class="log-line"><span class="log-ts">12:55:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">PAPER_EXIT: STOCH_CROSS LONG | exit_prem=₹111.33 | PnL=+₹834 | costs=₹89.6 | capital=₹11,234</span></div>
-  <div class="log-line"><span class="log-ts">12:55:01</span><span class="log-level info">INFO</span><span class="log-module">alerts</span><span class="log-msg">Slack alert sent: PAPER_EXIT STOCH_CROSS +₹834 (TRAIL)</span></div>
-  <div class="log-line"><span class="log-ts">12:50:00</span><span class="log-level debug">DEBUG</span><span class="log-module">engine</span><span class="log-msg">Trail update: STOCH_CROSS | prem=112.80 | peak=113.40 | gain_pct=14.5% &gt; trigger(12%) | trail_floor=113.40*(1-0.08)=104.33 → new floor=111.33</span></div>
-  <div class="log-line"><span class="log-ts">12:30:00</span><span class="log-level info">INFO</span><span class="log-module">risk</span><span class="log-msg">Real-time check: daily_loss=₹520 (26% of limit) | DD=0.0% | consecutive_losses=0 | ALL CLEAR</span></div>
-  <div class="log-line"><span class="log-ts">09:15:00</span><span class="log-level info">INFO</span><span class="log-module">scheduler</span><span class="log-msg">Market open — starting trading loop (poll 5s)</span></div>
-  <div class="log-line"><span class="log-ts">09:15:00</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Loop started (poll 5s)</span></div>
-  <div class="log-line"><span class="log-ts">03:37:17</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Seeded 75 historical candles (Nifty=23379)</span></div>
-  <div class="log-line"><span class="log-ts">03:37:16</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">Self-test: 2 signals on 75 bars — PASS</span></div>
-  <div class="log-line"><span class="log-ts">03:37:15</span><span class="log-level info">INFO</span><span class="log-module">engine</span><span class="log-msg">DAY START: 2026-06-02 | PAPER | Capital: ₹10,000 | V11 | Lot=65</span></div>
-  <div class="log-line"><span class="log-ts">03:37:08</span><span class="log-level info">INFO</span><span class="log-module">broker</span><span class="log-msg">Login successful for AACF597287 (attempt 1)</span></div>
+  <div class="log-line" style="color:var(--text-muted);padding:12px">Loading logs...</div>
 </div>
 </div>
-<div class="log-footer"><span>28 lines | Last: 13:10:05 IST</span><span>Source: logs/json/trading_2026-06-02.jsonl</span></div>
+<div class="log-footer"><span id="log-footer-meta">—</span><span id="log-footer-source">Source: logs/json/</span></div>
 </div>
 
 <!-- ═════════════════════════════════════════════════════════════ -->
@@ -826,54 +669,14 @@ body.has-api-error .app-main{margin-top:28px;}
 <div class="page-title">Broker & System <span class="page-subtitle">Connection health, session management, configuration</span></div>
 <div class="scroll-y">
 <div style="padding:0 20px 8px;font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-top:12px">Session Timeline</div>
-<div class="timeline-track">
-  <div class="timeline-node"><div class="timeline-dot done"></div><div class="timeline-label">Login</div><div class="timeline-time">03:37</div></div>
-  <div class="timeline-line done"></div>
-  <div class="timeline-node"><div class="timeline-dot done"></div><div class="timeline-label">Instruments</div><div class="timeline-time">03:37</div></div>
-  <div class="timeline-line done"></div>
-  <div class="timeline-node"><div class="timeline-dot done"></div><div class="timeline-label">Self-Test</div><div class="timeline-time">03:37</div></div>
-  <div class="timeline-line done"></div>
-  <div class="timeline-node"><div class="timeline-dot done"></div><div class="timeline-label">Mkt Open</div><div class="timeline-time">09:15</div></div>
-  <div class="timeline-line done"></div>
-  <div class="timeline-node"><div class="timeline-dot active"></div><div class="timeline-label">Trading</div><div class="timeline-time">now</div></div>
-  <div class="timeline-line"></div>
-  <div class="timeline-node"><div class="timeline-dot pending"></div><div class="timeline-label">Sq. Off</div><div class="timeline-time">15:15</div></div>
-  <div class="timeline-line"></div>
-  <div class="timeline-node"><div class="timeline-dot pending"></div><div class="timeline-label">EOD</div><div class="timeline-time">15:35</div></div>
-  <div class="timeline-line"></div>
-  <div class="timeline-node"><div class="timeline-dot pending"></div><div class="timeline-label">Logout</div><div class="timeline-time">23:55</div></div>
-</div>
-<div class="broker-grid">
-  <div class="broker-card"><div class="broker-card-title">Broker Connection</div><div class="broker-row"><span class="br-label">Status</span><span class="br-value"><span class="status-dot live"></span><span class="profit">Active</span></span></div><div class="broker-row"><span class="br-label">Client ID</span><span class="br-value">AACF597287</span></div><div class="broker-row"><span class="br-label">Auth Token</span><span class="br-value profit">Valid</span></div><div class="broker-row"><span class="br-label">Feed Token</span><span class="br-value profit">Valid</span></div><div class="broker-row"><span class="br-label">Next Refresh</span><span class="br-value">07:37 IST</span></div></div>
-  <div class="broker-card"><div class="broker-card-title">WebSocket Feed</div><div class="broker-row"><span class="br-label">State</span><span class="br-value profit">Connected</span></div><div class="broker-row"><span class="br-label">Last Tick</span><span class="br-value">13:10:05</span></div><div class="broker-row"><span class="br-label">Staleness</span><span class="br-value profit">2s</span></div><div class="broker-row"><span class="br-label">Reconnects</span><span class="br-value">0</span></div><div class="broker-row"><span class="br-label">Subscribed</span><span class="br-value">NIFTY (99926000)</span></div></div>
-  <div class="broker-card"><div class="broker-card-title">Instruments</div><div class="broker-row"><span class="br-label">Total</span><span class="br-value">158,238</span></div><div class="broker-row"><span class="br-label">NIFTY Opts</span><span class="br-value">1,826</span></div><div class="broker-row"><span class="br-label">BANKNIFTY</span><span class="br-value">1,012</span></div><div class="broker-row"><span class="br-label">Nearest Exp</span><span class="br-value">03 Jun</span></div><div class="broker-row"><span class="br-label">Downloaded</span><span class="br-value">03:37 IST</span></div></div>
-  <div class="broker-card"><div class="broker-card-title">Resources</div><div class="broker-row"><span class="br-label">Uptime</span><span class="br-value">9h 33m</span></div><div class="broker-row"><span class="br-label">Memory</span><span class="br-value">142 MB</span></div><div class="broker-row"><span class="br-label">Watchdog</span><span class="br-value profit">PID 48194</span></div><div class="broker-row"><span class="br-label">Session Lock</span><span class="br-value profit">Acquired</span></div></div>
-  <div class="broker-card"><div class="broker-card-title">Alerts</div><div class="broker-row"><span class="br-label">Method</span><span class="br-value">Slack</span></div><div class="broker-row"><span class="br-label">Channel</span><span class="br-value">C0B7C08...</span></div><div class="broker-row"><span class="br-label">Sent Today</span><span class="br-value">6</span></div><div class="broker-row"><span class="br-label">Last Alert</span><span class="br-value">13:05 IST</span></div></div>
-  <div class="broker-card"><div class="broker-card-title">Engine</div><div class="broker-row"><span class="br-label">Version</span><span class="br-value">V11</span></div><div class="broker-row"><span class="br-label">Mode</span><span class="br-value accent">Paper</span></div><div class="broker-row"><span class="br-label">Lot Size</span><span class="br-value">65</span></div><div class="broker-row"><span class="br-label">Strategies</span><span class="br-value">3 active</span></div><div class="broker-row"><span class="br-label">Max Lots</span><span class="br-value">20</span></div></div>
+<div class="timeline-track" id="session-timeline"></div>
+<div class="broker-grid" id="broker-grid">
+  <div class="broker-card"><div class="broker-card-title">Broker Connection</div><div class="broker-row"><span class="br-label">Status</span><span class="br-value" id="broker-status">—</span></div><div class="broker-row"><span class="br-label">Client ID</span><span class="br-value" id="broker-client">—</span></div><div class="broker-row"><span class="br-label">Session Started</span><span class="br-value" id="broker-started">—</span></div><div class="broker-row"><span class="br-label">Session PID</span><span class="br-value" id="broker-pid">—</span></div></div>
+  <div class="broker-card"><div class="broker-card-title">Trading</div><div class="broker-row"><span class="br-label">Mode</span><span class="br-value accent" id="broker-mode">—</span></div><div class="broker-row"><span class="br-label">Lot Size</span><span class="br-value" id="broker-lot">—</span></div><div class="broker-row"><span class="br-label">Max Lots</span><span class="br-value" id="broker-max-lots">—</span></div><div class="broker-row"><span class="br-label">Alerts</span><span class="br-value" id="broker-alerts">—</span></div></div>
+  <div class="broker-card"><div class="broker-card-title">Engine</div><div class="broker-row"><span class="br-label">Version</span><span class="br-value">V11</span></div><div class="broker-row"><span class="br-label">Project Root</span><span class="br-value" id="broker-root" style="font-size:9px">—</span></div><div class="broker-row"><span class="br-label">Last Updated</span><span class="br-value" id="broker-updated">—</span></div><div class="broker-row"><span class="br-label">Uptime</span><span class="br-value" id="broker-uptime">—</span></div></div>
 </div>
 <div style="padding:0 20px 8px;font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-top:4px">Configuration</div>
-<div style="padding:0 20px 16px;max-height:300px;overflow-y:auto"><table class="config-table"><thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead><tbody>
-  <tr class="config-category"><td colspan="3">Capital & Sizing</td></tr>
-  <tr><td>STARTING_CAPITAL</td><td>10,000</td><td style="color:var(--text-muted)">Initial capital</td></tr>
-  <tr><td>CAPITAL_PER_LOT</td><td>6,000</td><td style="color:var(--text-muted)">Rs per lot</td></tr>
-  <tr><td>MAX_LOTS_CAP</td><td>20</td><td style="color:var(--text-muted)">Safety cap</td></tr>
-  <tr><td>NIFTY_LOT_SIZE</td><td>65</td><td style="color:var(--text-muted)">Jan 2026</td></tr>
-  <tr class="config-category"><td colspan="3">Risk Management</td></tr>
-  <tr><td>DAILY_LOSS_LIMIT_PCT</td><td>20.0</td><td style="color:var(--text-muted)">Daily loss limit</td></tr>
-  <tr><td>DRAWDOWN_HALFSIZE_PCT</td><td>20.0</td><td style="color:var(--text-muted)">Half size threshold</td></tr>
-  <tr><td>DRAWDOWN_HALT_PCT</td><td>35.0</td><td style="color:var(--text-muted)">Full halt threshold</td></tr>
-  <tr><td>MAX_CONSECUTIVE_LOSSES</td><td>2</td><td style="color:var(--text-muted)">Consec. loss limit</td></tr>
-  <tr class="config-category"><td colspan="3">Options Model</td></tr>
-  <tr><td>PREMIUM_DELTA</td><td>0.70</td><td style="color:var(--text-muted)">ITM delta</td></tr>
-  <tr><td>PREMIUM_SL_PCT</td><td>30.0</td><td style="color:var(--text-muted)">Stop loss %</td></tr>
-  <tr><td>SLIPPAGE_POINTS</td><td>0.30</td><td style="color:var(--text-muted)">Half-spread</td></tr>
-  <tr><td>BID_ASK_SPREAD</td><td>0.30</td><td style="color:var(--text-muted)">ATM spread</td></tr>
-  <tr><td>STT_SELL_PCT</td><td>0.05</td><td style="color:var(--text-muted)">Sell-side STT</td></tr>
-  <tr class="config-category"><td colspan="3">Timing</td></tr>
-  <tr><td>ENTRY_START</td><td>09:30</td><td style="color:var(--text-muted)">First entry</td></tr>
-  <tr><td>ENTRY_END</td><td>14:30</td><td style="color:var(--text-muted)">Last entry</td></tr>
-  <tr><td>SQUARE_OFF_TIME</td><td>15:15</td><td style="color:var(--text-muted)">Hard exit</td></tr>
-</tbody></table></div>
+<div style="padding:0 20px 16px;max-height:300px;overflow-y:auto"><table class="config-table"><thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead><tbody id="config-tbody"><tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px">Loading config...</td></tr></tbody></table></div>
 </div>
 </div>
 
@@ -882,62 +685,106 @@ body.has-api-error .app-main{margin-top:28px;}
 <!-- ═════════════════════════════════════════════════════════════ -->
 <div class="page" id="page-8">
 <div class="page-title">Performance Analytics <span class="page-subtitle">Statistical analysis and P&L patterns</span></div>
-<div class="perf-summary">
-  <div class="stat-card"><div class="label">Sharpe Ratio</div><div class="value profit">2.84</div></div>
-  <div class="stat-card"><div class="label">Sortino Ratio</div><div class="value profit">4.12</div></div>
-  <div class="stat-card"><div class="label">Calmar Ratio</div><div class="value profit">6.78</div></div>
-  <div class="stat-card"><div class="label">Max Win Streak</div><div class="value profit">8</div></div>
-  <div class="stat-card"><div class="label">Max Loss Streak</div><div class="value loss">3</div></div>
-  <div class="stat-card"><div class="label">Expectancy</div><div class="value profit">+₹412/trade</div></div>
+<div class="perf-summary" id="perf-summary">
+  <div class="stat-card"><div class="label">Sharpe Ratio</div><div class="value" id="perf-sharpe">—</div></div>
+  <div class="stat-card"><div class="label">Sortino Ratio</div><div class="value" id="perf-sortino">—</div></div>
+  <div class="stat-card"><div class="label">Calmar Ratio</div><div class="value" id="perf-calmar">—</div></div>
+  <div class="stat-card"><div class="label">Max Win Streak</div><div class="value" id="perf-win-streak">—</div></div>
+  <div class="stat-card"><div class="label">Max Loss Streak</div><div class="value" id="perf-loss-streak">—</div></div>
+  <div class="stat-card"><div class="label">Expectancy</div><div class="value" id="perf-expectancy">—</div></div>
 </div>
 <div class="scroll-y">
-<div style="padding:0 20px 8px;font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px">P&L Calendar Heatmap — June 2026</div>
-<div class="calendar-heatmap">
-  <div class="calendar-grid">
-    <div class="cal-day-header">Mon</div><div class="cal-day-header">Tue</div><div class="cal-day-header">Wed</div><div class="cal-day-header">Thu</div><div class="cal-day-header">Fri</div><div class="cal-day-header">Sat</div><div class="cal-day-header">Sun</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.3);color:var(--profit)">1</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.5);color:var(--profit);font-weight:600;border:1px solid var(--profit)">2</div>
-    <div class="cal-day zero">3</div><div class="cal-day zero">4</div><div class="cal-day zero">5</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day zero">8</div><div class="cal-day zero">9</div><div class="cal-day zero">10</div><div class="cal-day zero">11</div><div class="cal-day zero">12</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day zero">15</div><div class="cal-day zero">16</div><div class="cal-day zero">17</div><div class="cal-day zero">18</div><div class="cal-day zero">19</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day zero">22</div><div class="cal-day zero">23</div><div class="cal-day zero">24</div><div class="cal-day zero">25</div><div class="cal-day zero">26</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day zero">29</div><div class="cal-day zero">30</div>
-  </div>
-</div>
-<div style="padding:0 20px 8px;font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-top:4px">May 2026</div>
-<div class="calendar-heatmap">
-  <div class="calendar-grid">
-    <div class="cal-day-header">Mon</div><div class="cal-day-header">Tue</div><div class="cal-day-header">Wed</div><div class="cal-day-header">Thu</div><div class="cal-day-header">Fri</div><div class="cal-day-header">Sat</div><div class="cal-day-header">Sun</div>
-    <div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day" style="background:rgba(239,83,80,0.2);color:var(--loss)">2</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.4);color:var(--profit)">5</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.2);color:var(--profit)">6</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.5);color:var(--profit)">7</div>
-    <div class="cal-day" style="background:rgba(239,83,80,0.15);color:var(--loss)">8</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.3);color:var(--profit)">9</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.5);color:var(--profit)">12</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.2);color:var(--profit)">13</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.6);color:var(--profit)">14</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.3);color:var(--profit)">15</div>
-    <div class="cal-day" style="background:rgba(239,83,80,0.2);color:var(--loss)">16</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.4);color:var(--profit)">19</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.5);color:var(--profit)">20</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.3);color:var(--profit)">21</div>
-    <div class="cal-day" style="background:rgba(239,83,80,0.15);color:var(--loss)">22</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.6);color:var(--profit)">23</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.3);color:var(--profit)">26</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.4);color:var(--profit)">27</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.5);color:var(--profit)">28</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.2);color:var(--profit)">29</div>
-    <div class="cal-day" style="background:rgba(38,166,154,0.7);color:var(--profit)">30</div><div class="cal-day empty"></div><div class="cal-day empty"></div>
-  </div>
-</div>
+<div style="padding:0 20px 8px;font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px" id="calendar-title">P&amp;L Calendar</div>
+<div class="calendar-heatmap"><div class="calendar-grid" id="pnl-calendar"></div></div>
 <div class="perf-charts">
-  <div class="perf-chart"><div class="perf-chart-title">P&L Distribution (₹)</div><div class="histogram-bars" id="pnl-distribution"><div class="hist-bar" style="height:5px;background:var(--loss)"><span class="hist-label">-1.5K</span></div><div class="hist-bar" style="height:12px;background:var(--loss)"><span class="hist-label">-1K</span></div><div class="hist-bar" style="height:30px;background:var(--loss)"><span class="hist-label">-500</span></div><div class="hist-bar" style="height:18px;background:var(--bg-active)"><span class="hist-label">0</span></div><div class="hist-bar" style="height:55px;background:var(--profit)"><span class="hist-label">+500</span></div><div class="hist-bar" style="height:78px;background:var(--profit)"><span class="hist-label">+1K</span></div><div class="hist-bar" style="height:45px;background:var(--profit)"><span class="hist-label">+1.5K</span></div><div class="hist-bar" style="height:22px;background:var(--profit)"><span class="hist-label">+2K</span></div><div class="hist-bar" style="height:8px;background:var(--profit)"><span class="hist-label">+2.5K</span></div></div></div>
-  <div class="perf-chart"><div class="perf-chart-title">Avg P&L by Entry Hour</div><div class="tod-bars"><div class="tod-bar"><div class="tod-bar-fill" style="height:35px;background:var(--profit)"></div><div class="tod-label">9:30</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:20px;background:var(--loss)"></div><div class="tod-label">10:00</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:50px;background:var(--profit)"></div><div class="tod-label">10:30</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:65px;background:var(--profit)"></div><div class="tod-label">11:00</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:55px;background:var(--profit)"></div><div class="tod-label">11:30</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:70px;background:var(--profit)"></div><div class="tod-label">12:00</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:45px;background:var(--profit)"></div><div class="tod-label">12:30</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:60px;background:var(--profit)"></div><div class="tod-label">13:00</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:30px;background:var(--profit)"></div><div class="tod-label">13:30</div></div><div class="tod-bar"><div class="tod-bar-fill" style="height:15px;background:var(--loss)"></div><div class="tod-label">14:00</div></div></div></div>
-  <div class="perf-chart"><div class="perf-chart-title">Win/Loss Streaks Over Time</div><svg viewBox="0 0 400 100" preserveAspectRatio="none"><line x1="0" y1="50" x2="400" y2="50" stroke="var(--border)" stroke-width="0.5"/><polyline points="10,30 30,35 50,25 70,20 90,15 110,25 130,30 150,40 170,55 190,60 210,55 230,45 250,35 270,25 290,20 310,30 330,35 350,25 370,20 390,15" fill="none" stroke="var(--profit)" stroke-width="1.2"/><text x="0" y="12" fill="var(--profit)" font-size="7" font-family="JetBrains Mono">+8 streak</text><text x="0" y="95" fill="var(--loss)" font-size="7" font-family="JetBrains Mono">-3 streak</text></svg></div>
-  <div class="perf-chart"><div class="perf-chart-title">Hold Duration vs P&L</div><svg viewBox="0 0 400 100" preserveAspectRatio="none"><line x1="0" y1="50" x2="400" y2="50" stroke="var(--border)" stroke-width="0.5"/><circle cx="40" cy="30" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="80" cy="25" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="60" cy="60" r="3" fill="var(--loss)" opacity="0.6"/><circle cx="120" cy="20" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="140" cy="35" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="100" cy="65" r="3" fill="var(--loss)" opacity="0.6"/><circle cx="180" cy="28" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="200" cy="15" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="220" cy="40" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="160" cy="55" r="3" fill="var(--loss)" opacity="0.6"/><circle cx="260" cy="22" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="280" cy="30" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="300" cy="45" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="240" cy="58" r="3" fill="var(--loss)" opacity="0.6"/><circle cx="340" cy="35" r="3" fill="var(--profit)" opacity="0.6"/><circle cx="360" cy="42" r="3" fill="var(--profit)" opacity="0.6"/><text x="200" y="98" fill="var(--text-muted)" font-size="7" font-family="JetBrains Mono" text-anchor="middle">Hold Duration (bars) →</text></svg></div>
+  <div class="perf-chart"><div class="perf-chart-title">P&amp;L Distribution (₹)</div><div class="histogram-bars" id="pnl-distribution"></div></div>
+  <div class="perf-chart"><div class="perf-chart-title">Avg P&amp;L by Entry Hour</div><div class="tod-bars" id="hourly-pnl-bars"></div></div>
+  <div class="perf-chart"><div class="perf-chart-title">Win/Loss Streaks Over Time</div><svg id="streak-svg" viewBox="0 0 400 100" preserveAspectRatio="none"></svg></div>
+  <div class="perf-chart"><div class="perf-chart-title">Hold Duration vs P&amp;L</div><svg id="hold-scatter-svg" viewBox="0 0 400 100" preserveAspectRatio="none"></svg></div>
 </div>
+</div>
+</div>
+
+<!-- ═══ PAGE 9: ALL MARKETS ═══ -->
+<div class="page" id="page-9">
+<div class="page-title">All Markets <span class="page-subtitle">Multi-asset overview — Gold, Crude, Currency, Nifty</span></div>
+<div class="scroll-y" style="padding:16px">
+<div id="markets-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px"></div>
+<div style="margin-top:20px">
+  <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">Combined P&amp;L Today</div>
+  <div id="markets-combined-pnl" class="stat-card" style="display:inline-block;padding:12px 20px"><span class="mono" style="font-size:24px">—</span></div>
+</div>
+</div>
+</div>
+
+<!-- ═══ PAGE 10: GOLD TERMINAL ═══ -->
+<div class="page" id="page-10">
+<div class="page-title">Gold Terminal <span class="page-subtitle">MCX Gold Petal futures — 09:00–23:30 IST</span></div>
+<div class="scroll-y" style="padding:16px">
+<div id="gold-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+<div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+  <span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px">Price Chart</span>
+  <div class="inst-tf-bar" data-inst="gold"><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1H">1H</button></div>
+</div>
+<div class="inst-chart-overlay" id="gold-chart-overlay"></div>
+<div class="inst-chart-container" id="gold-chart"><div style="padding:24px;color:var(--text-muted);font-size:10px;text-align:center">Waiting for candle data...</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin:12px 0 8px">Open Positions</div>
+<div id="gold-positions" style="margin-bottom:16px"><div style="padding:12px;color:var(--text-muted);font-size:10px">No open positions</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">Trades Today</div>
+<table class="styled-table" id="gold-trades-table"><thead><tr><th>Time</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Reason</th></tr></thead><tbody></tbody></table>
+</div>
+</div>
+
+<!-- ═══ PAGE 11: CRUDE OIL TERMINAL ═══ -->
+<div class="page" id="page-11">
+<div class="page-title">Crude Oil Terminal <span class="page-subtitle">MCX Crude Oil Mini futures — 09:00–23:30 IST</span></div>
+<div class="scroll-y" style="padding:16px">
+<div id="crude-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+<div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+  <span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px">Price Chart</span>
+  <div class="inst-tf-bar" data-inst="crude"><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1H">1H</button></div>
+</div>
+<div class="inst-chart-overlay" id="crude-chart-overlay"></div>
+<div class="inst-chart-container" id="crude-chart"><div style="padding:24px;color:var(--text-muted);font-size:10px;text-align:center">Waiting for candle data...</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin:12px 0 8px">Open Positions</div>
+<div id="crude-positions" style="margin-bottom:16px"><div style="padding:12px;color:var(--text-muted);font-size:10px">No open positions</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">Trades Today</div>
+<table class="styled-table" id="crude-trades-table"><thead><tr><th>Time</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Reason</th></tr></thead><tbody></tbody></table>
+</div>
+</div>
+
+<!-- ═══ PAGE 12: USDINR TERMINAL ═══ -->
+<div class="page" id="page-12">
+<div class="page-title">USD/INR Terminal <span class="page-subtitle">NSE Currency futures — 09:00–17:00 IST</span></div>
+<div class="scroll-y" style="padding:16px">
+<div id="usdinr-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+<div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+  <span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px">Price Chart</span>
+  <div class="inst-tf-bar" data-inst="usdinr"><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1H">1H</button></div>
+</div>
+<div class="inst-chart-overlay" id="usdinr-chart-overlay"></div>
+<div class="inst-chart-container" id="usdinr-chart"><div style="padding:24px;color:var(--text-muted);font-size:10px;text-align:center">Waiting for candle data...</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin:12px 0 8px">Open Positions</div>
+<div id="usdinr-positions" style="margin-bottom:16px"><div style="padding:12px;color:var(--text-muted);font-size:10px">No open positions</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:8px">Trades Today</div>
+<table class="styled-table" id="usdinr-trades-table"><thead><tr><th>Time</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Reason</th></tr></thead><tbody></tbody></table>
+</div>
+</div>
+
+<!-- ═══ PAGE 13: ALL TRADES (UNIFIED) ═══ -->
+<div class="page" id="page-13">
+<div class="page-title">All Trades <span class="page-subtitle">Unified trade history across all markets and strategies</span></div>
+<div class="scroll-y" style="padding:16px">
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  <select id="all-trades-filter" onchange="loadAllTrades()" style="background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);padding:4px 8px;border-radius:4px;font-size:11px;font-family:var(--font-ui)">
+    <option value="">All Instruments</option>
+    <option value="NIFTY">Nifty</option>
+    <option value="GOLD_PETAL">Gold Petal</option>
+    <option value="CRUDEOILM">Crude Oil Mini</option>
+    <option value="USDINR">USD/INR</option>
+  </select>
+</div>
+<table class="styled-table" id="all-trades-table"><thead><tr><th>Date</th><th>Time</th><th>Instrument</th><th>Strategy</th><th>Dir</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Reason</th></tr></thead><tbody></tbody></table>
 </div>
 </div>
 
@@ -977,39 +824,23 @@ function signalCardClass(type) {
   return 'pullback';
 }
 
-// Generate candle analysis rows
-(function(){
-  const tbody=document.getElementById('candle-tbody');
-  if(!tbody)return;
-  const bars=[
-    {n:75,t:'13:10',o:23462,h:23495,l:23441,c:23479,v:'42.4K',r5:58.2,r15:61.4,sk:72.1,cci:85,wr:-28,e9:23471,e20:23458,vw:23463,bb:0.68,adx:28.5,st:'▲',stf:'▲',atr:42.3,va:'1.4x',dec:'—',dcls:'muted'},
-    {n:74,t:'13:05',o:23448,h:23468,l:23440,c:23462,v:'38.9K',r5:55.1,r15:60.2,sk:68.4,cci:72,wr:-32,e9:23465,e20:23452,vw:23460,bb:0.62,adx:27.8,st:'▲',stf:'▲',atr:41.8,va:'1.2x',dec:'PULLBACK LONG ✓',dcls:'profit'},
-    {n:73,t:'13:00',o:23440,h:23455,l:23432,c:23448,v:'35.2K',r5:52.4,r15:59.1,sk:64.2,cci:58,wr:-36,e9:23460,e20:23448,vw:23458,bb:0.55,adx:27.2,st:'▲',stf:'▲',atr:41.2,va:'1.1x',dec:'—',dcls:'muted'},
-    {n:72,t:'12:55',o:23452,h:23460,l:23438,c:23440,v:'41.1K',r5:48.8,r15:58.4,sk:60.1,cci:42,wr:-40,e9:23456,e20:23445,vw:23455,bb:0.48,adx:26.5,st:'▲',stf:'▲',atr:40.8,va:'1.3x',dec:'EXIT STOCH (TRAIL)',dcls:'warning'},
-    {n:71,t:'12:50',o:23445,h:23458,l:23442,c:23452,v:'36.8K',r5:50.2,r15:57.8,sk:58.3,cci:48,wr:-38,e9:23452,e20:23442,vw:23452,bb:0.52,adx:26.1,st:'▲',stf:'▲',atr:40.5,va:'1.1x',dec:'—',dcls:'muted'},
-    {n:70,t:'12:45',o:23438,h:23450,l:23430,c:23445,v:'34.2K',r5:47.5,r15:57.2,sk:55.8,cci:35,wr:-42,e9:23448,e20:23438,vw:23448,bb:0.46,adx:25.8,st:'▲',stf:'▲',atr:40.1,va:'1.0x',dec:'—',dcls:'muted'},
-    {n:69,t:'12:40',o:23430,h:23442,l:23425,c:23438,v:'32.5K',r5:45.1,r15:56.5,sk:52.4,cci:28,wr:-45,e9:23444,e20:23435,vw:23445,bb:0.42,adx:25.4,st:'▲',stf:'▲',atr:39.8,va:'0.9x',dec:'—',dcls:'muted'},
-    {n:68,t:'12:35',o:23425,h:23436,l:23418,c:23430,v:'38.6K',r5:42.8,r15:55.8,sk:48.6,cci:15,wr:-48,e9:23440,e20:23432,vw:23442,bb:0.38,adx:25.0,st:'▲',stf:'▲',atr:39.5,va:'1.2x',dec:'—',dcls:'muted'},
-    {n:67,t:'12:30',o:23418,h:23430,l:23412,c:23425,v:'36.1K',r5:40.2,r15:55.1,sk:44.2,cci:8,wr:-52,e9:23436,e20:23428,vw:23438,bb:0.34,adx:24.5,st:'▲',stf:'▲',atr:39.2,va:'1.1x',dec:'—',dcls:'muted'},
-    {n:66,t:'12:25',o:23410,h:23422,l:23405,c:23418,v:'33.8K',r5:38.5,r15:54.4,sk:40.8,cci:-5,wr:-55,e9:23432,e20:23425,vw:23435,bb:0.30,adx:24.0,st:'▲',stf:'▲',atr:38.9,va:'1.0x',dec:'—',dcls:'muted'},
-    {n:65,t:'12:20',o:23405,h:23415,l:23398,c:23410,v:'40.2K',r5:35.8,r15:53.6,sk:36.4,cci:-18,wr:-60,e9:23428,e20:23422,vw:23432,bb:0.25,adx:23.5,st:'▲',stf:'▲',atr:38.6,va:'1.2x',dec:'STOCH_CROSS LONG ✓',dcls:'profit'},
-    {n:64,t:'12:15',o:23398,h:23410,l:23390,c:23405,v:'35.5K',r5:33.2,r15:52.8,sk:32.1,cci:-30,wr:-65,e9:23424,e20:23418,vw:23428,bb:0.20,adx:23.0,st:'▲',stf:'▲',atr:38.3,va:'1.1x',dec:'—',dcls:'muted'},
-    {n:63,t:'12:10',o:23410,h:23418,l:23395,c:23398,v:'42.8K',r5:30.5,r15:52.0,sk:28.5,cci:-42,wr:-70,e9:23420,e20:23415,vw:23425,bb:0.15,adx:22.5,st:'▲',stf:'▲',atr:38.0,va:'1.3x',dec:'EXIT SUPERT. (TGT)',dcls:'warning'},
-  ];
-  let html='';
-  bars.forEach(b=>{
-    const r5cls=b.r5<30?'oversold':b.r5>70?'overbought':'neutral';
-    const adxcls=b.adx>25?'strong':'weak';
-    html+=`<tr>
-      <td>${b.n}</td><td>${b.t}</td><td>${b.o.toLocaleString()}</td><td class="profit">${b.h.toLocaleString()}</td><td class="loss">${b.l.toLocaleString()}</td><td>${b.c.toLocaleString()}</td><td>${b.v}</td>
-      <td class="indicator-cell ${r5cls}">${b.r5}</td><td class="indicator-cell neutral">${b.r15}</td><td class="indicator-cell neutral">${b.sk}</td><td>${b.cci}</td><td>${b.wr}</td>
-      <td>${b.e9.toLocaleString()}</td><td>${b.e20.toLocaleString()}</td><td>${b.vw.toLocaleString()}</td><td>${b.bb}</td>
-      <td class="indicator-cell ${adxcls}">${b.adx}</td><td class="profit">${b.st}</td><td class="profit">${b.stf}</td><td>${b.atr}</td><td>${b.va}</td>
-      <td class="decision-cell ${b.dcls}" style="font-size:10px">${b.dec}</td>
-    </tr>`;
-  });
-  tbody.innerHTML=html;
-})();
+const HEATMAP_HOURS = ['9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30'];
+const WEEKDAYS = ['Mon','Tue','Wed','Thu','Fri'];
+
+function fmtMoney(n) {
+  if (n == null || Number.isNaN(n)) return '—';
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}₹${Math.round(n).toLocaleString()}`;
+}
+
+function setPerfMetric(id, value, positive) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = value ?? '—';
+  if (positive === true) el.className = 'value profit';
+  else if (positive === false) el.className = 'value loss';
+  else el.className = 'value';
+}
 
 // ═══════════════════════════════════════════════════════════════
 // CHART RENDERER — renders live SVG charts from engine data
@@ -1020,12 +851,65 @@ const Charts = {
   indicators: { ema9: true, ema20: true, vwap: true, st: true },
   _lastCandles: [],
 
+  aggregateOhlc(candles, factor) {
+    if (!candles?.length || factor <= 1) return candles || [];
+    const merged = [];
+    for (let i = 0; i < candles.length; i += factor) {
+      const chunk = candles.slice(i, i + factor);
+      if (!chunk.length) continue;
+      const last = chunk[chunk.length - 1];
+      merged.push({
+        ...last,
+        n: merged.length + 1,
+        t: last.t,
+        o: chunk[0].o,
+        h: Math.max(...chunk.map(c => c.h)),
+        l: Math.min(...chunk.map(c => c.l)),
+        c: last.c,
+        v: chunk.reduce((s, c) => s + (c.v || 0), 0),
+      });
+    }
+    return merged;
+  },
+
+  candlesForTimeframe(base5m, base1m) {
+    const b5 = base5m || API._base5mCandles || [];
+    const b1 = base1m || API._base1mCandles || [];
+    switch (this.timeframe) {
+      case '1m': return b1;
+      case '5m': return b5;
+      case '15m': return this.aggregateOhlc(b5, 3);
+      case '1H': return this.aggregateOhlc(b5, 12);
+      default: return b5;
+    }
+  },
+
+  refreshForTimeframe(base5m, base1m) {
+    const candles = this.candlesForTimeframe(base5m, base1m);
+    if (!candles.length) {
+      const container = document.querySelector('.candle-chart-mock');
+      let svgContainer = container?.querySelector('.candle-chart-svg');
+      if (container && !svgContainer) {
+        svgContainer = document.createElement('div');
+        svgContainer.className = 'candle-chart-svg';
+        container.insertBefore(svgContainer, container.firstChild);
+      }
+      if (svgContainer) {
+        const msg = this.timeframe === '1m'
+          ? '1-minute data loading — starts when engine receives ticks'
+          : 'Waiting for candle data...';
+        svgContainer.innerHTML = `<div style="padding:24px;color:var(--text-muted);font-size:10px;text-align:center">${msg}</div>`;
+      }
+      this._lastCandles = [];
+      return;
+    }
+    this.renderCandlestick(candles);
+  },
+
   renderCandlestick(candles) {
     if (!candles || !candles.length) return;
     this._lastCandles = candles;
-    const tfMap = { '1m': 1, '5m': 1, '15m': 3, '1H': 12 };
-    const step = tfMap[this.timeframe] || 1;
-    const sampled = step > 1 ? candles.filter((_, i) => i % step === 0 || i === candles.length - 1) : candles;
+    const sampled = candles;
     const container = document.querySelector('.candle-chart-mock');
     let svgContainer = container?.querySelector('.candle-chart-svg');
     if (container && !svgContainer) {
@@ -1155,6 +1039,28 @@ const Charts = {
     </svg>`;
   },
 
+  renderDrawdownChart(trades, startingCapital) {
+    const el = document.getElementById('drawdown-svg');
+    if (!el) return;
+    if (!trades || !trades.length) {
+      el.innerHTML = '';
+      return;
+    }
+    let capital = startingCapital || API._startingCapital || 10000;
+    let peak = capital;
+    const pts = [{ x: 10, dd: 0 }];
+    const sorted = sortTradesChronologically(trades);
+    sorted.forEach((t, i) => {
+      capital += (t.pnl || 0);
+      peak = Math.max(peak, capital);
+      const dd = peak > 0 ? (peak - capital) / peak * 100 : 0;
+      pts.push({ x: 10 + (380 / sorted.length) * (i + 1), dd });
+    });
+    const maxDd = Math.max(...pts.map(p => p.dd), 1);
+    const polyPts = pts.map(p => `${p.x},${90 - (p.dd / maxDd) * 80}`).join(' ');
+    el.innerHTML = `<polyline points="${polyPts}" fill="none" stroke="var(--loss)" stroke-width="1.5"/>`;
+  },
+
   renderLiveEquityCurve(trades, startingCapital) {
     if (!trades || !trades.length) return;
     const el = document.getElementById('live-equity-svg');
@@ -1245,11 +1151,165 @@ const Charts = {
     });
     container.innerHTML = html;
   },
+
+  renderRecentDailyPnl(days) {
+    const container = document.getElementById('recent-daily-pnl');
+    if (!container) return;
+    if (!days || !days.length) {
+      container.innerHTML = '<span style="padding:8px">No daily P&amp;L yet</span>';
+      return;
+    }
+    const maxAbs = Math.max(...days.map(d => Math.abs(d.pnl)), 1);
+    container.innerHTML = days.map(d => {
+      const h = Math.max(4, Math.abs(d.pnl) / maxAbs * 80);
+      const color = d.pnl >= 0 ? 'var(--profit)' : 'var(--loss)';
+      const label = d.date?.substring(5) || '—';
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center"><div style="height:${h}px;width:100%;background:${color};border-radius:2px 2px 0 0"></div><span style="font-size:8px;color:var(--text-muted);font-family:var(--font-mono);margin-top:3px">${label}</span></div>`;
+    }).join('');
+  },
+
+  renderMonthlyBars(monthly) {
+    const bars = document.getElementById('monthly-pnl-bars');
+    const labels = document.getElementById('monthly-pnl-labels');
+    if (!bars || !labels) return;
+    if (!monthly || !monthly.length) {
+      bars.innerHTML = '<span>No monthly data</span>';
+      labels.innerHTML = '';
+      return;
+    }
+    const maxAbs = Math.max(...monthly.map(m => Math.abs(m.pnl)), 1);
+    bars.innerHTML = monthly.map(m => {
+      const h = Math.max(4, Math.abs(m.pnl) / maxAbs * 90);
+      const color = m.pnl >= 0 ? 'var(--profit)' : 'var(--loss)';
+      return `<div style="flex:1;height:${h}px;background:${color};border-radius:2px 2px 0 0"></div>`;
+    }).join('');
+    labels.innerHTML = monthly.map(m => `<span style="flex:1;text-align:center;font-size:8px;color:var(--text-muted);font-family:var(--font-mono)">${m.month.slice(5)}</span>`).join('');
+  },
+
+  renderHourlyBars(hourly) {
+    const container = document.getElementById('hourly-pnl-bars');
+    if (!container) return;
+    const hours = HEATMAP_HOURS.filter(h => hourly[h] != null);
+    if (!hours.length) {
+      container.innerHTML = '<span style="color:var(--text-muted);font-size:10px;padding:8px">No hourly data</span>';
+      return;
+    }
+    const maxAbs = Math.max(...hours.map(h => Math.abs(hourly[h])), 1);
+    container.innerHTML = hours.map(h => {
+      const v = hourly[h];
+      const hPx = Math.max(4, Math.abs(v) / maxAbs * 70);
+      const color = v >= 0 ? 'var(--profit)' : 'var(--loss)';
+      return `<div class="tod-bar"><div class="tod-bar-fill" style="height:${hPx}px;background:${color}"></div><div class="tod-label">${h}</div></div>`;
+    }).join('');
+  },
+
+  renderStreakChart(series) {
+    const el = document.getElementById('streak-svg');
+    if (!el || !series || !series.length) return;
+    const pts = series.map((v, i) => {
+      const x = 10 + (380 / Math.max(series.length - 1, 1)) * i;
+      const y = 50 - Math.max(-40, Math.min(40, v)) * 0.8;
+      return `${x},${y}`;
+    }).join(' ');
+    el.innerHTML = `<line x1="0" y1="50" x2="400" y2="50" stroke="var(--border)" stroke-width="0.5"/><polyline points="${pts}" fill="none" stroke="var(--profit)" stroke-width="1.2"/>`;
+  },
+
+  renderHoldScatter(points) {
+    const el = document.getElementById('hold-scatter-svg');
+    if (!el || !points || !points.length) return;
+    const maxHold = Math.max(...points.map(p => p.hold || 1), 1);
+    const maxAbsPnl = Math.max(...points.map(p => Math.abs(p.pnl || 0)), 1);
+    const circles = points.map(p => {
+      const x = 20 + ((p.hold || 0) / maxHold) * 360;
+      const y = 50 - ((p.pnl || 0) / maxAbsPnl) * 35;
+      const fill = (p.pnl || 0) >= 0 ? 'var(--profit)' : 'var(--loss)';
+      return `<circle cx="${x}" cy="${y}" r="3" fill="${fill}" opacity="0.65"/>`;
+    }).join('');
+    el.innerHTML = `<line x1="0" y1="50" x2="400" y2="50" stroke="var(--border)" stroke-width="0.5"/>${circles}<text x="200" y="98" fill="var(--text-muted)" font-size="7" font-family="JetBrains Mono" text-anchor="middle">Hold Duration (bars) →</text>`;
+  },
+
+  renderLotsHistory(trades) {
+    const container = document.getElementById('lots-history-bars');
+    if (!container || !trades || !trades.length) return;
+    const recent = sortTradesChronologically(trades).slice(-20);
+    const maxLots = Math.max(...recent.map(t => t.lots || 1), 1);
+    container.innerHTML = recent.map(t => {
+      const h = Math.max(4, ((t.lots || 1) / maxLots) * 70);
+      return `<div style="flex:1;height:${h}px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.85"></div>`;
+    }).join('');
+  },
+
+  renderCumulativeSvg(cumulative, color, gradId) {
+    if (!cumulative || cumulative.length < 2) return '';
+    const vals = cumulative.map(p => p.pnl);
+    const hi = Math.max(...vals);
+    const lo = Math.min(...vals, 0);
+    const rng = hi - lo || 1;
+    const pts = cumulative.map((p, i) => {
+      const x = (800 / Math.max(cumulative.length - 1, 1)) * i;
+      const y = 50 - ((p.pnl - lo) / rng) * 45;
+      return `${x},${y}`;
+    });
+    const poly = pts.join(' ');
+    const fill = `${poly} 800,55 0,55`;
+    return `<svg viewBox="0 0 800 55" preserveAspectRatio="none"><defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.2"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><polyline points="${poly}" fill="none" stroke="${color}" stroke-width="1.5"/><polygon points="${fill}" fill="url(#${gradId})"/></svg>`;
+  },
+
+  renderStrategyHeatmap(heatmap) {
+    let html = '<div class="heatmap-label"></div>';
+    HEATMAP_HOURS.forEach(h => { html += `<div class="heatmap-label" style="justify-content:center">${h}</div>`; });
+    WEEKDAYS.forEach((day, wd) => {
+      html += `<div class="heatmap-label">${day}</div>`;
+      HEATMAP_HOURS.forEach(h => {
+        const cell = heatmap[`${wd}-${h}`] || { wins: 0, losses: 0 };
+        const total = cell.wins + cell.losses;
+        if (!total) html += `<div class="heatmap-cell" style="background:var(--bg-elevated);color:var(--text-muted)">—</div>`;
+        else if (cell.wins >= cell.losses) html += `<div class="heatmap-cell" style="background:var(--profit-dim);color:var(--profit)" title="${cell.wins}W/${cell.losses}L">W</div>`;
+        else html += `<div class="heatmap-cell" style="background:var(--loss-dim);color:var(--loss)" title="${cell.wins}W/${cell.losses}L">L</div>`;
+      });
+    });
+    return html;
+  },
+
+  renderPnlCalendar(dailyPnl) {
+    const grid = document.getElementById('pnl-calendar');
+    const title = document.getElementById('calendar-title');
+    if (!grid) return;
+    const dates = Object.keys(dailyPnl || {}).sort();
+    if (!dates.length) {
+      grid.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:10px">No calendar data yet</div>';
+      return;
+    }
+    const latest = dates[dates.length - 1];
+    const [y, m] = latest.split('-');
+    if (title) title.textContent = `P&L Calendar — ${y}-${m}`;
+    const first = new Date(`${y}-${m}-01T00:00:00`);
+    const daysInMonth = new Date(Number(y), Number(m), 0).getDate();
+    const startOffset = (first.getDay() + 6) % 7;
+    let html = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="cal-day-header">${d}</div>`).join('');
+    for (let i = 0; i < startOffset; i++) html += '<div class="cal-day empty"></div>';
+    const maxAbs = Math.max(...Object.values(dailyPnl).map(v => Math.abs(v)), 1);
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = `${y}-${m}-${String(day).padStart(2, '0')}`;
+      const pnl = dailyPnl[key];
+      if (pnl == null) html += `<div class="cal-day zero">${day}</div>`;
+      else {
+        const intensity = Math.min(0.75, Math.abs(pnl) / maxAbs * 0.75 + 0.15);
+        const bg = pnl >= 0 ? `rgba(38,166,154,${intensity})` : `rgba(239,83,80,${intensity})`;
+        const cls = pnl >= 0 ? 'profit' : 'loss';
+        html += `<div class="cal-day" style="background:${bg};color:var(--${cls})" title="${fmtMoney(pnl)}">${day}</div>`;
+      }
+    }
+    grid.innerHTML = html;
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
 // LIVE API INTEGRATION
 // ═══════════════════════════════════════════════════════════════
+
+const INSTRUMENT_COLORS_EARLY = {Nifty:'var(--accent)',NIFTY:'var(--accent)',GOLD_PETAL:'#ffd700',CRUDEOILM:'#ff8c00',USDINR:'var(--profit)',GOLD_MINI:'#daa520'};
+const INSTRUMENT_LABELS = {Nifty:'Nifty 50',NIFTY:'Nifty 50',GOLD_PETAL:'Gold',GOLD_MINI:'Gold Mini',CRUDEOILM:'Crude',USDINR:'USD/INR'};
 
 const _apiOrigin = (location.protocol === 'file:' || !location.origin || location.origin === 'null')
   ? 'http://localhost:8900'
@@ -1318,6 +1378,7 @@ const API = {
         const msg = JSON.parse(e.data);
         if (msg.type === 'capital') this._onCapitalUpdate(msg.data);
         else if (msg.type === 'engine') this._onEngineUpdate(msg.data);
+        else if (msg.type === 'multi_asset') this._onMultiAssetUpdate(msg.data);
         else if (msg.type === 'event') this._onNewEvent(msg.data);
         else if (msg.type === 'log') this._onNewLog(msg.data);
         else if (msg.type === 'halt') this._onHaltChange(msg.data);
@@ -1362,14 +1423,39 @@ const API = {
     if (!data) return;
     this._updateNiftyTicker(data.nifty_price);
     this._updatePositionCards(data.positions || []);
-    this._updateCandleTable(data.candles || []);
+    if (data.candles) this._base5mCandles = data.candles;
+    if (data.candles_1m) this._base1mCandles = data.candles_1m;
+    const tableCandles = Charts.timeframe === '1m' ? (data.candles_1m || []) : (data.candles || []);
+    this._updateCandleTable(tableCandles.length ? tableCandles : (data.candles || []));
     this._updateCandleStrip(data.candles || []);
-    Charts.renderCandlestick(data.candles || []);
+    Charts.refreshForTimeframe(this._base5mCandles, this._base1mCandles);
   },
 
   _onHaltChange(data) {
     this.loadStatus();
     this.loadRiskTab();
+  },
+
+  _onMultiAssetUpdate(data) {
+    if (!data || !data.instruments) return;
+    _maEngineCache = data;
+    const maInst = data.instruments || {};
+    for (const name of ['GOLD_PETAL','CRUDEOILM','USDINR']) {
+      const engine = maInst[name] || {};
+      const prefix = INSTRUMENT_PREFIX[name];
+      const topId = INSTRUMENT_TOPBAR[name];
+      if (topId && engine.price) {
+        const el = document.getElementById(topId);
+        if (el) el.textContent = '₹' + Number(engine.price).toLocaleString('en-IN');
+      }
+      if (prefix) {
+        renderFuturesPositions(engine.positions || [], prefix);
+      }
+    }
+    InstrumentCharts.refreshFromEngine(data);
+    renderLiveMarketsPanel(data);
+    renderLiveFuturesPositions(data);
+    loadMultiAssetData();
   },
 
   _updateNiftyTicker(price) {
@@ -1490,20 +1576,26 @@ const API = {
   _updateKPI(cap) {
     const pnl = cap.daily_pnl || 0;
     const cls = pnl >= 0 ? 'profit' : 'loss';
-    const kpis = document.querySelectorAll('.kpi-value');
-    if (kpis.length >= 6) {
-      kpis[1].className = `kpi-value ${cls}`;
-      kpis[1].textContent = `${pnl >= 0 ? '+' : ''}₹${Math.round(pnl).toLocaleString()}`;
-      kpis[2].textContent = `₹${Math.round(cap.current_capital || 0).toLocaleString()}`;
-      const dd = cap.drawdown_pct ?? 0;
-      kpis[3].textContent = `${Number(dd).toFixed(1)}%`;
-      const trades = cap.trades_today || 0;
-      const wins = cap.wins_today || 0;
-      const wr = trades > 0 ? Math.round(wins / trades * 100) : 0;
-      kpis[4].className = `kpi-value ${wr >= 50 ? 'profit' : 'loss'}`;
-      kpis[4].textContent = `${wr}%`;
-      kpis[5].textContent = String(trades);
-    }
+    const pnlEl = document.querySelectorAll('.kpi-strip > .kpi');
+    const kpiByLabel = {};
+    pnlEl.forEach(el => {
+      const lbl = el.querySelector('.kpi-label');
+      const val = el.querySelector('.kpi-value');
+      if (lbl && val) kpiByLabel[lbl.textContent.trim()] = val;
+    });
+    const dayPnl = kpiByLabel['Day P&L'];
+    if (dayPnl) { dayPnl.className = `kpi-value ${cls}`; dayPnl.textContent = `${pnl >= 0 ? '+' : ''}₹${Math.round(pnl).toLocaleString()}`; }
+    const capEl = kpiByLabel['Capital'];
+    if (capEl) capEl.textContent = `₹${Math.round(cap.current_capital || 0).toLocaleString()}`;
+    const ddEl = kpiByLabel['DD'];
+    if (ddEl) ddEl.textContent = `${Number(cap.drawdown_pct ?? 0).toFixed(1)}%`;
+    const trades = cap.trades_today || 0;
+    const wins = cap.wins_today || 0;
+    const wr = trades > 0 ? Math.round(wins / trades * 100) : 0;
+    const wrEl = kpiByLabel['WR'];
+    if (wrEl) { wrEl.className = `kpi-value ${wr >= 50 ? 'profit' : 'loss'}`; wrEl.textContent = `${wr}%`; }
+    const trEl = kpiByLabel['Trades'];
+    if (trEl) trEl.textContent = String(trades);
     const pfEl = document.getElementById('kpi-pf');
     if (pfEl && cap.profit_factor != null) {
       pfEl.textContent = formatPF(cap.profit_factor);
@@ -1586,9 +1678,9 @@ const API = {
   },
 
   async loadTrades() {
-    const trades = await this.get('/trades?limit=50');
+    const trades = await this.get('/trades?limit=1000');
     if (!trades) return;
-    const tbody = document.querySelector('#bt-0 tbody');
+    const tbody = document.getElementById('trades-tbody');
     if (!tbody) return;
     if (!trades.length) {
       tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px">No trades yet — waiting for market open</td></tr>';
@@ -1598,18 +1690,25 @@ const API = {
       const cls = t.pnl >= 0 ? 'profit' : 'loss';
       const dirBadge = t.direction === 'LONG' ? '<span class="badge badge-long">L</span>' : '<span class="badge badge-short">S</span>';
       const exitBadge = t.exit_reason === 'TGT' ? 'badge-tgt' : t.exit_reason === 'SL' ? 'badge-sl' : t.exit_reason === 'TRAIL' ? 'badge-trail' : 'badge-time';
-      return `<tr><td>${t.date?.substring(5)}</td><td>${t.time}</td><td style="font-family:var(--font-ui);font-weight:500">${t.strategy}</td><td>${dirBadge}</td><td>${t.entry_price?.toFixed(2)}</td><td>${t.exit_price?.toFixed(2)}</td><td class="${cls}">${t.pnl >= 0 ? '+' : ''}${Math.round(t.pnl)}</td><td>${t.lots || 1}</td><td>${t.hold_bars || '—'}</td><td><span class="badge ${exitBadge}">${t.exit_reason || '—'}</span></td><td>${t.capital_after ? Math.round(t.capital_after).toLocaleString() : '—'}</td></tr>`;
+      const mkt = t.instrument || 'Nifty';
+      const mktColor = (INSTRUMENT_COLORS||INSTRUMENT_COLORS_EARLY)[mkt] || '#fff';
+      return `<tr><td>${t.date?.substring(5)}</td><td>${t.time}</td><td style="font-size:9px;font-weight:600;color:${mktColor}">${INSTRUMENT_LABELS[mkt] || mkt}</td><td style="font-family:var(--font-ui);font-weight:500">${t.strategy}</td><td>${dirBadge}</td><td>${t.entry_price?.toFixed(2)}</td><td>${t.exit_price?.toFixed(2)}</td><td class="${cls}">${t.pnl >= 0 ? '+' : ''}${Math.round(t.pnl)}</td><td>${t.lots || 1}</td><td>${t.hold_bars || '—'}</td><td><span class="badge ${exitBadge}">${t.exit_reason || '—'}</span></td></tr>`;
     }).join('');
     Charts.renderLiveEquityCurve(trades, this._startingCapital);
     Charts.renderEquityCurve(trades, this._startingCapital);
     Charts.renderCapitalTimeline(trades, this._startingCapital);
+    Charts.renderDrawdownChart(trades, this._startingCapital);
     Charts.renderPnlDistribution(trades);
+    Charts.renderLotsHistory(trades);
+    if (this._analyticsCache) {
+      Charts.renderRecentDailyPnl(this._analyticsCache.recent_daily_pnl);
+    }
   },
 
   async loadStrategyStats() {
     const stats = await this.get('/trades/strategy-stats');
     if (!stats) return;
-    const tbody = document.querySelector('#rt-2 tbody');
+    const tbody = document.getElementById('rt-stats-tbody');
     if (!tbody) return;
     if (!stats.length) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No strategy data yet</td></tr>';
@@ -1626,40 +1725,40 @@ const API = {
     const totalPf = totals.gl > 0 ? totals.gp / totals.gl : (totals.gp > 0 ? 9999 : 0);
     rows += `<tr style="border-top:1px solid var(--border);font-weight:600"><td>Total</td><td>${totals.t}</td><td class="${totalWr >= 50 ? 'profit' : 'loss'}">${totalWr}%</td><td class="${totals.pnl >= 0 ? 'profit' : 'loss'}">${totals.pnl >= 0 ? '+' : ''}${Math.round(totals.pnl)}</td><td>${formatPF(totalPf)}</td></tr>`;
     tbody.innerHTML = rows;
-    this.loadStrategyDeepDive(stats);
+    await this.loadStrategyDeepDive();
   },
 
-  loadStrategyDeepDive(stats) {
-    const matchStrategy = (key, name) => {
-      const n = name.toUpperCase();
-      const k = key.toUpperCase();
-      if (k === 'PULLBACK') return n.includes('PULLBACK');
-      if (k === 'STOCH') return n.includes('STOCH');
-      if (k === 'SUPERTREND') return n.includes('SUPERT');
-      return n.includes(k);
-    };
-    document.querySelectorAll('#strategy-deep-dive .strategy-section').forEach(section => {
-      const key = section.dataset.strategy;
-      const stat = stats.find(s => matchStrategy(key, s.strategy));
-      if (!stat) return;
-      const cards = section.querySelectorAll('.strategy-stats-grid .stat-card .value');
-      if (cards.length >= 7) {
-        cards[0].textContent = String(stat.trades);
-        cards[1].textContent = `${stat.wr}%`;
-        cards[1].className = `value ${stat.wr >= 50 ? 'profit' : 'loss'}`;
-        cards[2].textContent = formatPF(stat.profit_factor);
-        cards[2].className = `value ${stat.profit_factor >= 1 ? 'profit' : 'loss'}`;
-        const avgPnl = stat.avg_pnl ?? 0;
-        cards[3].textContent = avgPnl > 0 ? `+₹${Math.round(avgPnl)}` : '—';
-        cards[3].className = `value ${avgPnl > 0 ? 'profit' : ''}`;
-        cards[4].textContent = avgPnl < 0 ? `-₹${Math.round(Math.abs(avgPnl))}` : '—';
-        cards[4].className = `value ${avgPnl < 0 ? 'loss' : ''}`;
-        cards[5].textContent = stat.best_trade > 0 ? `+₹${Math.round(stat.best_trade)}` : '—';
-        cards[5].className = `value ${stat.best_trade > 0 ? 'profit' : ''}`;
-        cards[6].textContent = stat.worst_trade < 0 ? `-₹${Math.round(Math.abs(stat.worst_trade))}` : '—';
-        cards[6].className = `value ${stat.worst_trade < 0 ? 'loss' : ''}`;
-      }
-    });
+  async loadStrategyDeepDive() {
+    const details = await this.get('/trades/strategy-details');
+    const container = document.getElementById('strategy-deep-dive');
+    if (!container) return;
+    if (!details || !details.length) {
+      container.innerHTML = '<div style="padding:24px;color:var(--text-muted);font-size:11px">No strategy trade history yet</div>';
+      return;
+    }
+    container.innerHTML = details.map((d, idx) => {
+      const badge = d.active ? '<span class="badge badge-taken" style="font-size:10px">Active</span>' : '<span class="badge badge-rejected" style="font-size:10px">Disabled</span>';
+      const gradId = `cum-${idx}`;
+      const conditions = (d.conditions || []).map(c => `<div class="condition-chip"><span>${c.label}</span><span class="cv">${c.value}</span></div>`).join('');
+      const heatmap = Charts.renderStrategyHeatmap(d.heatmap || {});
+      const cumChart = Charts.renderCumulativeSvg(d.cumulative_pnl || [], d.color || '#2962ff', gradId);
+      return `<div class="strategy-section" style="${idx === details.length - 1 ? 'border:none' : ''}">
+        <div class="strategy-header"><div class="strategy-dot" style="background:${d.color}"></div><div class="strategy-name">${d.strategy}</div>${badge}</div>
+        <div class="strategy-stats-grid">
+          <div class="stat-card"><div class="label">Trades</div><div class="value">${d.trades}</div></div>
+          <div class="stat-card"><div class="label">Win Rate</div><div class="value ${d.wr >= 50 ? 'profit' : 'loss'}">${d.wr}%</div></div>
+          <div class="stat-card"><div class="label">Profit Factor</div><div class="value ${d.profit_factor >= 1 ? 'profit' : 'loss'}">${formatPF(d.profit_factor)}</div></div>
+          <div class="stat-card"><div class="label">Avg Win</div><div class="value ${d.avg_win > 0 ? 'profit' : ''}">${d.avg_win > 0 ? fmtMoney(d.avg_win) : '—'}</div></div>
+          <div class="stat-card"><div class="label">Avg Loss</div><div class="value ${d.avg_loss < 0 ? 'loss' : ''}">${d.avg_loss < 0 ? fmtMoney(d.avg_loss) : '—'}</div></div>
+          <div class="stat-card"><div class="label">Best</div><div class="value ${d.best_trade > 0 ? 'profit' : ''}">${d.best_trade > 0 ? fmtMoney(d.best_trade) : '—'}</div></div>
+          <div class="stat-card"><div class="label">Worst</div><div class="value ${d.worst_trade < 0 ? 'loss' : ''}">${d.worst_trade < 0 ? fmtMoney(d.worst_trade) : '—'}</div></div>
+        </div>
+        ${conditions ? `<div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Entry Conditions</div><div class="conditions-list">${conditions}</div>` : ''}
+        <div style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Win/Loss by Hour of Day</div>
+        <div class="heatmap-grid">${heatmap}</div>
+        <div class="cumulative-chart">${cumChart || '<span style="color:var(--text-muted);font-size:10px">Not enough trades for curve</span>'}</div>
+      </div>`;
+    }).join('');
   },
 
   _buildLogQuery() {
@@ -1687,8 +1786,10 @@ const API = {
       const ts = l.ts ? l.ts.split('T')[1]?.substring(0, 8) : '';
       return `<div class="log-line"><span class="log-ts">${ts}</span><span class="log-level ${lvl}">${l.level}</span><span class="log-module">${l.module || ''}</span><span class="log-msg">${l.message || ''}</span></div>`;
     }).join('');
-    const footer = viewer.parentElement?.nextElementSibling;
-    if (footer) footer.querySelector('span').textContent = `${logs.length} lines | Last: ${logs[0]?.ts?.split('T')[1]?.substring(0, 8) || '—'} IST`;
+    const meta = document.getElementById('log-footer-meta');
+    if (meta) meta.textContent = `${logs.length} lines | Last: ${logs[0]?.ts?.split('T')[1]?.substring(0, 8) || '—'} IST`;
+    const src = document.getElementById('log-footer-source');
+    if (src) src.textContent = `Source: logs/json/trading_${new Date().toISOString().slice(0, 10)}.jsonl`;
   },
 
   async loadEvents() {
@@ -1712,7 +1813,7 @@ const API = {
   async loadRisk() {
     const gates = await this.get('/risk');
     if (!gates) return;
-    const grid = document.querySelector('.risk-gates-grid');
+    const grid = document.getElementById('risk-gates-grid') || document.querySelector('.risk-gates-grid');
     if (!grid) return;
     grid.innerHTML = gates.map(g => {
       const statusCls = g.status === 'pass' ? 'profit' : g.status === 'warn' ? 'warning' : 'loss';
@@ -1770,7 +1871,7 @@ const API = {
   async loadConfig() {
     const cfg = await this.get('/config');
     if (!cfg) return;
-    const table = document.querySelector('.config-table tbody');
+    const table = document.getElementById('config-tbody') || document.querySelector('.config-table tbody');
     if (!table) return;
     let html = '';
     for (const [group, items] of Object.entries(cfg)) {
@@ -1802,37 +1903,81 @@ const API = {
     setSys('alerts', broker.alert_method || '—');
     setSys('sqoff', sqOff);
     setSys('session', this._formatSessionDuration(broker.session_started));
+
+    try {
+      const maData = await this.get('/engine/multi-asset');
+      if (maData && maData.instruments) {
+        const instMap = maData.instruments;
+        const activeCount = Object.values(instMap).filter(i => i.price).length;
+        setSys('ma-status', activeCount > 0 ? `<span class="status-dot live"></span>${activeCount} active` : '<span class="status-dot offline"></span>Idle');
+        const goldD = instMap.GOLD_PETAL || {};
+        setSys('ma-gold', goldD.price ? `₹${Number(goldD.price).toLocaleString('en-IN')}` : 'Off');
+        const crudeD = instMap.CRUDEOILM || {};
+        setSys('ma-crude', crudeD.price ? `₹${Number(crudeD.price).toLocaleString('en-IN')}` : 'Off');
+        const usdD = instMap.USDINR || {};
+        setSys('ma-usdinr', usdD.price ? `₹${Number(usdD.price).toLocaleString('en-IN')}` : 'Off');
+        const totalCap = Object.values(instMap).reduce((s,i) => s + (i.capital || 0), 0);
+        setSys('ma-capital', totalCap ? `₹${Math.round(totalCap).toLocaleString()}` : '—');
+      }
+    } catch(e) { console.log('MA system tab:', e); }
   },
 
   async loadEngine() {
     const data = await this.get('/engine');
     if (!data) return;
+    if (data.candles) this._base5mCandles = data.candles;
+    if (data.candles_1m) this._base1mCandles = data.candles_1m;
     this._updateNiftyTicker(data.nifty_price);
     this._updatePositionCards(data.positions || []);
-    this._updateCandleTable(data.candles || []);
+    const tableCandles = Charts.timeframe === '1m' ? (data.candles_1m || []) : (data.candles || []);
+    this._updateCandleTable(tableCandles.length ? tableCandles : (data.candles || []));
     this._updateCandleStrip(data.candles || []);
-    Charts.renderCandlestick(data.candles || []);
+    Charts.refreshForTimeframe(this._base5mCandles, this._base1mCandles);
   },
 
   async loadBroker() {
-    const info = await this.get('/broker');
+    const [info, status, cfg] = await Promise.all([
+      this.get('/broker'),
+      this.get('/status'),
+      this.get('/config'),
+    ]);
     if (!info) return;
     const badge = document.getElementById('mode-badge');
     if (badge) {
       badge.textContent = info.trading_mode ? info.trading_mode.charAt(0).toUpperCase() + info.trading_mode.slice(1) : '—';
     }
-    const cards = document.querySelectorAll('#page-7 .broker-card');
-    if (cards.length >= 6) {
-      const card = cards[cards.length - 1];
-      const rows = card.querySelectorAll('.broker-row .br-value');
-      if (rows.length >= 5) {
-        rows[0].textContent = 'V11';
-        rows[1].className = 'br-value accent';
-        rows[1].textContent = info.trading_mode.charAt(0).toUpperCase() + info.trading_mode.slice(1);
-        rows[2].textContent = String(info.lot_size);
-        rows[3].textContent = '3 active';
-        rows[4].textContent = String(info.max_lots);
-      }
+    const setText = (id, text, html) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (html != null) el.innerHTML = html;
+      else el.textContent = text ?? '—';
+    };
+    setText('broker-status', null, info.session_active ? '<span class="status-dot live"></span><span class="profit">Active</span>' : '<span class="status-dot offline"></span><span>Offline</span>');
+    setText('broker-client', info.client_id || '—');
+    setText('broker-started', info.session_started ? info.session_started.split('T')[1]?.substring(0, 5) || info.session_started : '—');
+    setText('broker-pid', status?.session_pid ? String(status.session_pid) : '—');
+    setText('broker-mode', info.trading_mode ? info.trading_mode.charAt(0).toUpperCase() + info.trading_mode.slice(1) : '—');
+    setText('broker-lot', String(info.lot_size || '—'));
+    setText('broker-max-lots', String(info.max_lots || '—'));
+    setText('broker-alerts', info.alert_method || '—');
+    setText('broker-root', status?.project_root || '—');
+    setText('broker-updated', info.last_updated ? info.last_updated.split('T')[1]?.substring(0, 8) || '—' : '—');
+    setText('broker-uptime', this._formatSessionDuration(info.session_started));
+
+    const timeline = document.getElementById('session-timeline');
+    if (timeline && cfg) {
+      const sqOff = cfg.Timing?.find(i => i.key === 'SQUARE_OFF_TIME')?.value || '15:15';
+      const mktOpen = cfg.Timing?.find(i => i.key === 'MARKET_OPEN')?.value || '09:15';
+      const login = cfg.Timing?.find(i => i.key === 'SESSION_LOGIN_TIME')?.value || '—';
+      const active = info.session_active;
+      timeline.innerHTML = `
+        <div class="timeline-node"><div class="timeline-dot ${active ? 'done' : 'pending'}"></div><div class="timeline-label">Login</div><div class="timeline-time">${login}</div></div>
+        <div class="timeline-line ${active ? 'done' : ''}"></div>
+        <div class="timeline-node"><div class="timeline-dot ${active ? 'done' : 'pending'}"></div><div class="timeline-label">Market Open</div><div class="timeline-time">${mktOpen}</div></div>
+        <div class="timeline-line ${active ? 'done' : ''}"></div>
+        <div class="timeline-node"><div class="timeline-dot ${active ? 'active' : 'pending'}"></div><div class="timeline-label">Trading</div><div class="timeline-time">${active ? 'now' : '—'}</div></div>
+        <div class="timeline-line"></div>
+        <div class="timeline-node"><div class="timeline-dot pending"></div><div class="timeline-label">Sq. Off</div><div class="timeline-time">${sqOff}</div></div>`;
     }
   },
 
@@ -1866,21 +2011,82 @@ const API = {
       );
     }
 
-    const container = document.querySelector('#page-5 .scroll-y');
+    const container = document.getElementById('journal-list');
     if (!container) return;
-    container.querySelectorAll('.journal-card').forEach(c => c.remove());
     if (!trades.length) {
-      container.insertAdjacentHTML('beforeend', '<div class="journal-card" style="text-align:center;color:var(--text-muted);padding:24px">No trades match filters</div>');
+      container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:11px">No trades match filters</div>';
       return;
     }
-    let html = '';
-    for (const t of trades) {
+    container.innerHTML = trades.map(t => {
       const cls = t.pnl >= 0 ? 'profit' : 'loss';
       const dirBadge = t.direction === 'LONG' ? 'badge-long' : 'badge-short';
       const exitBadge = t.exit_reason === 'TGT' ? 'badge-tgt' : t.exit_reason === 'SL' ? 'badge-sl' : t.exit_reason === 'TRAIL' ? 'badge-trail' : 'badge-time';
-      html += `<div class="journal-card" onclick="toggleJournal(this)"><div class="journal-collapsed"><div class="journal-left"><span class="journal-time">${t.date?.substring(5)} ${t.time}</span><span class="journal-strategy">${t.strategy}</span><span class="badge ${dirBadge}">${t.direction?.charAt(0)}</span></div><div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl ${cls}" style="font-size:12px">${t.pnl >= 0 ? '+' : ''}₹${Math.round(t.pnl)}</span><span class="badge ${exitBadge}">${t.exit_reason || '—'}</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div></div><div class="journal-expanded"><div style="font-size:10px;color:var(--text-secondary);padding:4px">Entry: ₹${t.entry_price?.toFixed(2)} → Exit: ₹${t.exit_price?.toFixed(2)} | Lots: ${t.lots || 1} | Hold: ${t.hold_bars || '—'} bars | Confidence: ${t.confidence || '—'}</div></div></div>`;
+      const indicators = [
+        t.htf_rsi != null ? `HTF RSI ${t.htf_rsi}` : null,
+        t.adx != null ? `ADX ${t.adx}` : null,
+        t.confidence != null ? `Conf ${t.confidence}` : null,
+      ].filter(Boolean).join(' | ');
+      return `<div class="journal-card" onclick="toggleJournal(this)"><div class="journal-collapsed"><div class="journal-left"><span class="journal-time">${t.date?.substring(5)} ${t.time}</span><span class="journal-strategy">${t.strategy}</span><span class="badge ${dirBadge}">${t.direction?.charAt(0)}</span></div><div style="display:flex;align-items:center;gap:10px"><span class="pos-pnl ${cls}" style="font-size:12px">${t.pnl >= 0 ? '+' : ''}₹${Math.round(t.pnl)}</span><span class="badge ${exitBadge}">${t.exit_reason || '—'}</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M3 4.5l3 3 3-3"/></svg></div></div><div class="journal-expanded"><div style="font-size:10px;color:var(--text-secondary);padding:4px">Entry: ₹${t.entry_price?.toFixed(2)} → Exit: ₹${t.exit_price?.toFixed(2)} | Lots: ${t.lots || 1} | Hold: ${t.hold_bars || '—'} bars${indicators ? ` | ${indicators}` : ''}</div></div></div>`;
+    }).join('');
+  },
+
+  async loadAnalytics() {
+    const data = await this.get('/analytics');
+    if (!data) return;
+    this._analyticsCache = data;
+    const s = data.summary || {};
+    setPerfMetric('perf-sharpe', s.sharpe ?? '—', s.sharpe != null ? s.sharpe >= 1 : null);
+    setPerfMetric('perf-sortino', s.sortino ?? '—', s.sortino != null ? s.sortino >= 1 : null);
+    setPerfMetric('perf-calmar', s.calmar ?? '—', s.calmar != null ? s.calmar >= 1 : null);
+    setPerfMetric('perf-win-streak', s.max_win_streak ?? '—', true);
+    setPerfMetric('perf-loss-streak', s.max_loss_streak ?? '—', false);
+    setPerfMetric('perf-expectancy', s.expectancy != null ? `${fmtMoney(s.expectancy)}/trade` : '—', s.expectancy >= 0);
+
+    Charts.renderPnlCalendar(data.daily_pnl || {});
+    Charts.renderHourlyBars(data.hourly_avg_pnl || {});
+    Charts.renderStreakChart(data.streak_series || []);
+    Charts.renderHoldScatter(data.hold_vs_pnl || []);
+    Charts.renderRecentDailyPnl(data.recent_daily_pnl || []);
+    Charts.renderMonthlyBars(data.monthly || []);
+
+    const summary = document.getElementById('history-summary');
+    if (summary) {
+      summary.innerHTML = `
+        <div class="stat-card"><div class="label">Total Trades</div><div class="value">${s.total_trades ?? 0}</div></div>
+        <div class="stat-card"><div class="label">Total P&amp;L</div><div class="value ${(s.total_pnl || 0) >= 0 ? 'profit' : 'loss'}">${fmtMoney(s.total_pnl || 0)}</div></div>`;
     }
-    container.insertAdjacentHTML('beforeend', html);
+    const tbody = document.getElementById('monthly-breakdown-tbody');
+    if (tbody) {
+      const monthly = data.monthly || [];
+      if (!monthly.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No monthly data yet</td></tr>';
+      } else {
+        let rows = monthly.map(m => `<tr><td>${m.month}</td><td>${m.trades}</td><td>${m.wins}</td><td class="${m.wr >= 50 ? 'profit' : 'loss'}">${m.wr}%</td><td class="${m.pnl >= 0 ? 'profit' : 'loss'}">${fmtMoney(m.pnl)}</td><td>${formatPF(m.pf)}</td></tr>`).join('');
+        const totalTrades = monthly.reduce((a, m) => a + m.trades, 0);
+        const totalPnl = monthly.reduce((a, m) => a + m.pnl, 0);
+        rows += `<tr style="font-weight:600;border-top:1px solid var(--border)"><td>Total</td><td>${totalTrades}</td><td>—</td><td>—</td><td class="${totalPnl >= 0 ? 'profit' : 'loss'}">${fmtMoney(totalPnl)}</td><td>—</td></tr>`;
+        tbody.innerHTML = rows;
+      }
+    }
+  },
+
+  _analyticsCache: null,
+  _base5mCandles: [],
+  _base1mCandles: [],
+
+  async loadChartCandles() {
+    const tf = encodeURIComponent(Charts.timeframe);
+    const candles = await this.get(`/candles?tf=${tf}`);
+    if (!candles) return;
+    if (Charts.timeframe === '1m') {
+      this._base1mCandles = candles;
+      Charts.refreshForTimeframe(this._base5mCandles, this._base1mCandles);
+    } else if (Charts.timeframe === '5m') {
+      this._base5mCandles = candles;
+      Charts.refreshForTimeframe(this._base5mCandles, this._base1mCandles);
+    } else {
+      Charts.renderCandlestick(candles);
+    }
   },
 
   clearMockData() {
@@ -1913,7 +2119,7 @@ const API = {
         document.querySelectorAll('#chart-toolbar button[data-tf]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         Charts.timeframe = btn.dataset.tf;
-        if (Charts._lastCandles.length) Charts.renderCandlestick(Charts._lastCandles);
+        API.loadChartCandles();
       });
     });
 
@@ -1921,7 +2127,7 @@ const API = {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
         Charts.indicators[btn.dataset.ind] = btn.classList.contains('active');
-        if (Charts._lastCandles.length) Charts.renderCandlestick(Charts._lastCandles);
+        Charts.refreshForTimeframe(API._base5mCandles, API._base1mCandles);
       });
     });
 
@@ -1960,11 +2166,11 @@ const API = {
   API.wireControls();
   const ok = await API.get('/status');
   if (!ok) {
-    console.log('Dashboard API not available -- using mock data');
+    console.log('Dashboard API not available');
     API.showApiError(true);
     return;
   }
-  console.log('Dashboard API connected -- loading live data');
+  console.log('Dashboard API connected — loading live data');
   API.clearMockData();
   API.connectWS();
   await API.loadCapital();
@@ -1982,13 +2188,347 @@ const API = {
     API.loadJournal(),
     API.loadEngine(),
     API.loadClosedPositions(),
+    API.loadAnalytics(),
+    API.loadChartCandles(),
   ]);
 
   setInterval(() => { API.loadStatus(); API.loadBroker(); }, 5000);
   setInterval(() => API.loadEngine(), 5000);
-  setInterval(() => { API.loadTrades(); API.loadStrategyStats(); API.loadSignals(); API.loadClosedPositions(); }, 30000);
+  setInterval(() => { API.loadTrades(); API.loadStrategyStats(); API.loadSignals(); API.loadClosedPositions(); API.loadAnalytics(); loadAllTrades(); }, 30000);
   setInterval(() => API.loadRiskTab(), 10000);
+  setInterval(() => loadMultiAssetData(), 10000);
+  loadMultiAssetData();
+  loadAllTrades();
 })();
+
+/* ═══ MULTI-ASSET DATA LOADING ═══ */
+const INSTRUMENT_COLORS = {NIFTY:'var(--accent)',GOLD_PETAL:'#ffd700',CRUDEOILM:'#ff8c00',USDINR:'var(--profit)',GOLD_MINI:'#daa520'};
+const INSTRUMENT_ICONS = {NIFTY:'📊',GOLD_PETAL:'🥇',CRUDEOILM:'🛢️',USDINR:'💱',GOLD_MINI:'🪙'};
+const INSTRUMENT_PREFIX = {GOLD_PETAL:'gold',CRUDEOILM:'crude',USDINR:'usdinr'};
+const INSTRUMENT_TOPBAR = {GOLD_PETAL:'gold-price',CRUDEOILM:'crude-price',USDINR:'usdinr-price'};
+const INSTRUMENT_API_NAME = {gold:'GOLD_PETAL',crude:'CRUDEOILM',usdinr:'USDINR'};
+let _maEngineCache = null;
+
+const InstrumentCharts = {
+  _timeframes: {gold:'5m', crude:'5m', usdinr:'5m'},
+  _candleCache: {},
+
+  renderChart(prefix, candles, positions) {
+    const container = document.getElementById(prefix + '-chart');
+    const overlay = document.getElementById(prefix + '-chart-overlay');
+    if (!container || !candles || !candles.length) {
+      if (container) container.innerHTML = '<div style="padding:24px;color:var(--text-muted);font-size:10px;text-align:center">Waiting for candle data...</div>';
+      return;
+    }
+    this._candleCache[prefix] = candles;
+    const W = container.clientWidth || 700, H_CANDLE = 200, H_VOL = 40, PAD = 8;
+    const n = candles.length;
+    const barW = Math.max(3, Math.min(16, (W - 2*PAD) / n * 0.6));
+    const gap = (W - 2*PAD) / n;
+
+    const hi = Math.max(...candles.map(c=>c.h));
+    const lo = Math.min(...candles.map(c=>c.l));
+    const range = hi - lo || 1;
+    const margin = range * 0.05;
+    const pHi = hi+margin, pLo = lo-margin, pRange = pHi-pLo;
+    const y = (price) => PAD + (1 - (price-pLo)/pRange) * H_CANDLE;
+    const maxVol = Math.max(...candles.map(c=>c.v||1), 1);
+
+    let svg = `<svg viewBox="0 0 ${W} ${H_CANDLE+H_VOL+10}" preserveAspectRatio="none" style="width:100%;height:100%">`;
+    for (let i=0;i<5;i++){const gy=PAD+(H_CANDLE/4)*i; svg+=`<line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="#1e1e24" stroke-width="0.5"/>`;}
+
+    const ema9pts=candles.map((c,i)=>c.ema9?`${PAD+i*gap+barW/2},${y(c.ema9)}`:null).filter(Boolean);
+    if(ema9pts.length>1) svg+=`<polyline points="${ema9pts.join(' ')}" fill="none" stroke="#ffeb3b" stroke-width="1" opacity="0.6"/>`;
+    const ema20pts=candles.map((c,i)=>c.ema20?`${PAD+i*gap+barW/2},${y(c.ema20)}`:null).filter(Boolean);
+    if(ema20pts.length>1) svg+=`<polyline points="${ema20pts.join(' ')}" fill="none" stroke="#42a5f5" stroke-width="1" opacity="0.6"/>`;
+    const vwapPts=candles.map((c,i)=>c.vwap?`${PAD+i*gap+barW/2},${y(c.vwap)}`:null).filter(Boolean);
+    if(vwapPts.length>1) svg+=`<polyline points="${vwapPts.join(' ')}" fill="none" stroke="#ab47bc" stroke-width="1" opacity="0.4" stroke-dasharray="4,3"/>`;
+
+    const volBase = H_CANDLE+H_VOL+8;
+    for(let i=0;i<n;i++){const c=candles[i];const x=PAD+i*gap;const vol=c.v||0;const vh=Math.max(1,(vol/maxVol)*H_VOL);const fill=c.c>=c.o?'var(--volume-up)':'var(--volume-down)';svg+=`<rect x="${x}" y="${volBase-vh}" width="${barW}" height="${vh}" fill="${fill}" rx="1"/>`;}
+    for(let i=0;i<n;i++){const c=candles[i];const x=PAD+i*gap;const cx=x+barW/2;const bull=c.c>=c.o;const fill=bull?'var(--candle-up)':'var(--candle-down)';const bodyTop=y(Math.max(c.o,c.c));const bodyBot=y(Math.min(c.o,c.c));const bodyH=Math.max(1,bodyBot-bodyTop);svg+=`<line x1="${cx}" y1="${y(c.h)}" x2="${cx}" y2="${y(c.l)}" stroke="var(--candle-wick)" stroke-width="1"/>`;svg+=`<rect x="${x}" y="${bodyTop}" width="${barW}" height="${bodyH}" fill="${fill}" rx="1"/>`;}
+
+    if(positions && positions.length){
+      for(const p of positions){
+        if(p.entry_price){const ey=y(p.entry_price);svg+=`<line x1="0" y1="${ey}" x2="${W}" y2="${ey}" stroke="var(--accent)" stroke-width="0.8" stroke-dasharray="4,2"/>`;svg+=`<text x="${W-4}" y="${ey-3}" fill="var(--accent)" font-size="8" text-anchor="end">Entry ${p.entry_price.toFixed(2)}</text>`;}
+        if(p.sl_price){const sy=y(p.sl_price);svg+=`<line x1="0" y1="${sy}" x2="${W}" y2="${sy}" stroke="var(--loss)" stroke-width="0.8" stroke-dasharray="4,2"/>`;svg+=`<text x="${W-4}" y="${sy-3}" fill="var(--loss)" font-size="8" text-anchor="end">SL ${p.sl_price.toFixed(2)}</text>`;}
+        if(p.target_price){const ty=y(p.target_price);svg+=`<line x1="0" y1="${ty}" x2="${W}" y2="${ty}" stroke="var(--profit)" stroke-width="0.8" stroke-dasharray="4,2"/>`;svg+=`<text x="${W-4}" y="${ty-3}" fill="var(--profit)" font-size="8" text-anchor="end">TGT ${p.target_price.toFixed(2)}</text>`;}
+      }
+    }
+
+    svg+='</svg>';
+    container.innerHTML = svg;
+
+    if(overlay){
+      const last=candles[n-1];const chg=last.c>=last.o;
+      overlay.innerHTML=`<span>O <span class="val">${last.o.toLocaleString()}</span></span><span>H <span class="val profit">${last.h.toLocaleString()}</span></span><span>L <span class="val loss">${last.l.toLocaleString()}</span></span><span>C <span class="val ${chg?'profit':'loss'}">${last.c.toLocaleString()}</span></span><span>V <span class="val">${last.v>=1000?(last.v/1000).toFixed(1)+'K':last.v}</span></span><span style="margin-left:auto;color:var(--text-muted)">RSI <span class="val">${(last.rsi5||50).toFixed(0)}</span></span><span style="color:var(--text-muted)">ADX <span class="val">${(last.adx||0).toFixed(0)}</span></span>`;
+    }
+  },
+
+  aggregateOhlc(base, factor) {
+    if(factor<=1||!base) return base;
+    const merged=[];
+    for(let i=0;i<base.length;i+=factor){const chunk=base.slice(i,i+factor);if(!chunk.length) continue;const first=chunk[0],last=chunk[chunk.length-1];merged.push({n:first.n,t:first.t,o:first.o,h:Math.max(...chunk.map(c=>c.h)),l:Math.min(...chunk.map(c=>c.l)),c:last.c,v:chunk.reduce((s,c)=>s+(c.v||0),0),rsi5:last.rsi5,ema9:last.ema9,ema20:last.ema20,vwap:last.vwap,adx:last.adx});}
+    return merged;
+  },
+
+  refreshFromEngine(maEngine) {
+    if(!maEngine || !maEngine.instruments) return;
+    for(const [apiName, prefix] of Object.entries(INSTRUMENT_PREFIX)){
+      const instData = maEngine.instruments[apiName] || {};
+      const base5m = instData.candles || [];
+      const tf = this._timeframes[prefix] || '5m';
+      let candles = base5m;
+      if(tf==='15m') candles=this.aggregateOhlc(base5m,3);
+      else if(tf==='1H') candles=this.aggregateOhlc(base5m,12);
+      this.renderChart(prefix, candles, instData.positions || []);
+    }
+  }
+};
+
+document.querySelectorAll('.inst-tf-bar').forEach(bar=>{
+  const inst=bar.dataset.inst;
+  bar.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      bar.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      InstrumentCharts._timeframes[inst]=btn.dataset.tf;
+      if(_maEngineCache) InstrumentCharts.refreshFromEngine(_maEngineCache);
+    });
+  });
+});
+
+async function loadMultiAssetData(){
+  try{
+    const [instruments, maEngine] = await Promise.all([
+      API.get('/instruments'),
+      API.get('/engine/multi-asset')
+    ]);
+    if(instruments) {
+      renderMarketsGrid(instruments);
+      updateMultiAssetTopBar(instruments);
+    }
+    _maEngineCache = maEngine;
+    const maInst = (maEngine && maEngine.instruments) || {};
+    for(const name of ['GOLD_PETAL','CRUDEOILM','USDINR']){
+      const summary = instruments ? instruments.find(i=>i.name===name) : null;
+      const engine = maInst[name] || {};
+      const prefix = INSTRUMENT_PREFIX[name];
+      if(prefix) renderInstrumentTerminal(summary, engine, prefix, name);
+    }
+    InstrumentCharts.refreshFromEngine(maEngine);
+    renderLiveMarketsPanel(maEngine);
+    renderLiveFuturesPositions(maEngine);
+  }catch(e){ console.error('loadMultiAssetData', e); }
+}
+
+function updateMultiAssetTopBar(instruments){
+  for(const inst of instruments){
+    const elId = INSTRUMENT_TOPBAR[inst.name];
+    if(!elId) continue;
+    const el = document.getElementById(elId);
+    if(!el || !inst.current_price) continue;
+    el.textContent = '₹' + Number(inst.current_price).toLocaleString('en-IN');
+    const pnl = inst.daily_pnl || 0;
+    if(pnl > 0) el.className = 'kpi-value mono profit';
+    else if(pnl < 0) el.className = 'kpi-value mono loss';
+    else el.className = 'kpi-value mono';
+  }
+}
+
+function renderMarketsGrid(instruments){
+  const grid=document.getElementById('markets-grid');
+  if(!grid) return;
+  let html='';
+  let totalPnl=0;
+  for(const inst of instruments){
+    const pnl = inst.daily_pnl||0;
+    totalPnl += pnl;
+    const pnlClass = pnl>=0?'profit':'loss';
+    const statusDot = inst.enabled?'<span style="color:var(--profit);font-size:8px">●</span>':'<span style="color:var(--text-muted);font-size:8px">●</span>';
+    const icon = INSTRUMENT_ICONS[inst.name]||'📈';
+    const color = INSTRUMENT_COLORS[inst.name]||'var(--accent)';
+    html+=`<div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:14px;border-left:3px solid ${color}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:600;font-size:13px">${icon} ${inst.display_name}</span>
+        ${statusDot}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+        <div><span class="secondary">Exchange</span><div class="mono">${inst.exchange}</div></div>
+        <div><span class="secondary">Type</span><div class="mono">${inst.asset_type}</div></div>
+        <div><span class="secondary">Price</span><div class="mono">${inst.current_price?'₹'+Number(inst.current_price).toLocaleString('en-IN'):'—'}</div></div>
+        <div><span class="secondary">Daily P&L</span><div class="mono ${pnlClass}">${pnl>=0?'+':''}₹${pnl.toFixed(0)}</div></div>
+        <div><span class="secondary">Trades</span><div class="mono">${inst.trades_today||0}</div></div>
+        <div><span class="secondary">Positions</span><div class="mono">${inst.open_positions||0}</div></div>
+      </div>
+    </div>`;
+  }
+  grid.innerHTML=html;
+  const combined=document.getElementById('markets-combined-pnl');
+  if(combined){
+    const cls=totalPnl>=0?'profit':'loss';
+    combined.innerHTML=`<span class="mono ${cls}" style="font-size:24px">${totalPnl>=0?'+':''}₹${totalPnl.toFixed(0)}</span>`;
+  }
+}
+
+function renderInstrumentTerminal(summary, engine, prefix, name){
+  const statsEl=document.getElementById(prefix+'-stats');
+  if(!statsEl) return;
+  const price = engine.price || (summary && summary.current_price);
+  const pnl = engine.daily_pnl || (summary ? summary.daily_pnl : 0) || 0;
+  const tradesToday = engine.trades_today || (summary ? summary.trades_today : 0) || 0;
+  const signalsToday = engine.signals_today || 0;
+  const positions = engine.positions || [];
+  const enabled = summary ? summary.enabled : true;
+  const capitalPct = summary ? summary.capital_allocated : 0;
+  const pnlClass=pnl>=0?'profit':'loss';
+  statsEl.innerHTML=`
+    <div class="stat-card"><div class="label">Price</div><div class="value mono">${price?'₹'+Number(price).toLocaleString('en-IN'):'—'}</div></div>
+    <div class="stat-card"><div class="label">Daily P&L</div><div class="value mono ${pnlClass}">${pnl>=0?'+':''}₹${pnl.toFixed(0)}</div></div>
+    <div class="stat-card"><div class="label">Trades</div><div class="value mono">${tradesToday}</div></div>
+    <div class="stat-card"><div class="label">Signals</div><div class="value mono">${signalsToday}</div></div>
+    <div class="stat-card"><div class="label">Status</div><div class="value" style="color:${enabled?'var(--profit)':'var(--text-muted)'}">${enabled?'Active':'Disabled'}</div></div>
+    <div class="stat-card"><div class="label">Capital</div><div class="value mono">${capitalPct||0}%</div></div>
+  `;
+  renderFuturesPositions(positions, prefix);
+  loadInstrumentTrades(name, prefix);
+}
+
+function renderFuturesPositions(positions, prefix){
+  const container = document.getElementById(prefix+'-positions');
+  if(!container) return;
+  if(!positions || !positions.length){
+    container.innerHTML='<div style="padding:12px;color:var(--text-muted);font-size:10px">No open positions</div>';
+    return;
+  }
+  container.innerHTML = positions.map(p => {
+    const pnl = p.current_pnl || 0;
+    const cls = pnl >= 0 ? 'profit' : 'loss';
+    const dirBadge = p.direction === 'LONG' ? 'badge-long' : 'badge-short';
+    const entryTime = p.entry_time ? p.entry_time.split('T')[1]?.substring(0,8) || '' : '';
+    return `<div class="position-card">
+      <div class="pos-header">
+        <div><span class="pos-strategy accent">${p.signal_type || '—'}</span> <span class="badge ${dirBadge}" style="margin-left:4px">${p.direction}</span></div>
+        <span class="pos-pnl ${cls}">${pnl >= 0 ? '+' : ''}₹${Math.round(pnl).toLocaleString()}</span>
+      </div>
+      <div class="pos-grid">
+        <div class="pos-grid-item"><span class="label">Entry</span><span class="value">₹${Number(p.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>
+        <div class="pos-grid-item"><span class="label">SL</span><span class="value loss">₹${Number(p.sl_price).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>
+        <div class="pos-grid-item"><span class="label">Target</span><span class="value profit">₹${Number(p.target_price).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>
+        <div class="pos-grid-item"><span class="label">Lots</span><span class="value">${p.lots || 1}</span></div>
+        <div class="pos-grid-item"><span class="label">Hold</span><span class="value">${p.candles_held ?? 0} bars</span></div>
+        <div class="pos-grid-item"><span class="label">Conf</span><span class="value">${p.confidence ?? '—'}%</span></div>
+      </div>
+      ${entryTime ? `<div style="font-size:9px;color:var(--text-muted);margin-top:4px">Entered ${entryTime}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderLiveMarketsPanel(maEngine) {
+  const panel = document.getElementById('live-markets-panel');
+  if (!panel) return;
+  const instruments = (maEngine && maEngine.instruments) || {};
+  const items = [
+    {name:'GOLD_PETAL', label:'Gold Petal', icon:'🥇', color:'#ffd700'},
+    {name:'CRUDEOILM', label:'Crude Oil Mini', icon:'🛢️', color:'#ff8c00'},
+    {name:'USDINR', label:'USD/INR', icon:'💱', color:'var(--profit)'},
+  ];
+  let html = '';
+  let totalPnl = 0;
+  for (const item of items) {
+    const d = instruments[item.name] || {};
+    const price = d.price;
+    const pnl = d.daily_pnl || 0;
+    totalPnl += pnl;
+    const posCount = (d.positions || []).length;
+    const pnlClass = pnl > 0 ? 'profit' : pnl < 0 ? 'loss' : '';
+    const statusDot = price ? '<span class="status-dot online"></span>' : '<span class="status-dot offline"></span>';
+    html += `<div style="padding:6px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
+      <span style="font-size:12px">${item.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:600;color:${item.color}">${item.label} ${statusDot}</div>
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-secondary)">${price ? '₹'+Number(price).toLocaleString('en-IN') : '—'}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono ${pnlClass}" style="font-size:10px;font-weight:600">${pnl !== 0 ? (pnl>0?'+':'')+pnl.toFixed(0) : '0'}</div>
+        ${posCount ? `<div style="font-size:9px;color:var(--accent)">${posCount} open</div>` : '<div style="font-size:9px;color:var(--text-muted)">no pos</div>'}
+      </div>
+    </div>`;
+  }
+  const totalClass = totalPnl > 0 ? 'profit' : totalPnl < 0 ? 'loss' : '';
+  html += `<div style="padding:8px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:10px;font-weight:600;color:var(--text-secondary)">TOTAL FUTURES P&L</span>
+    <span class="mono ${totalClass}" style="font-size:12px;font-weight:700">${totalPnl !== 0 ? (totalPnl>0?'+':'')+'₹'+totalPnl.toFixed(0) : '₹0'}</span>
+  </div>`;
+  panel.innerHTML = html;
+}
+
+function renderLiveFuturesPositions(maEngine) {
+  const container = document.getElementById('live-futures-positions');
+  const countEl = document.getElementById('futures-pos-count');
+  if (!container) return;
+  const instruments = (maEngine && maEngine.instruments) || {};
+  let allPositions = [];
+  for (const [name, data] of Object.entries(instruments)) {
+    for (const p of (data.positions || [])) {
+      allPositions.push({...p, instrument: data.display_name || name, instColor: INSTRUMENT_COLORS[name] || 'var(--text-secondary)'});
+    }
+  }
+  if (countEl) countEl.textContent = allPositions.length;
+  if (!allPositions.length) {
+    container.innerHTML = '<div style="padding:8px;color:var(--text-muted);font-size:10px">No futures positions</div>';
+    return;
+  }
+  container.innerHTML = allPositions.map(p => {
+    const pnl = p.current_pnl || 0;
+    const cls = pnl >= 0 ? 'profit' : 'loss';
+    const dirBadge = p.direction === 'LONG' ? 'badge-long' : 'badge-short';
+    return `<div class="position-card" style="border-left:2px solid ${p.instColor}">
+      <div class="pos-header">
+        <div><span style="font-size:9px;font-weight:700;color:${p.instColor}">${p.instrument}</span> <span class="pos-strategy accent" style="margin-left:4px">${p.signal_type||'—'}</span> <span class="badge ${dirBadge}" style="margin-left:2px">${p.direction}</span></div>
+        <span class="pos-pnl ${cls}">${pnl>=0?'+':''}₹${Math.round(pnl).toLocaleString()}</span>
+      </div>
+      <div class="pos-grid">
+        <div class="pos-grid-item"><span class="label">Entry</span><span class="value">₹${Number(p.entry_price).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>
+        <div class="pos-grid-item"><span class="label">SL</span><span class="value loss">₹${Number(p.sl_price).toLocaleString('en-IN',{minimumFractionDigits:2})}</span></div>
+        <div class="pos-grid-item"><span class="label">Hold</span><span class="value">${p.candles_held ?? 0} bars</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadInstrumentTrades(instrument, prefix){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const trades=await API.get('/trades?instrument='+instrument+'&date='+today+'&limit=50');
+    if(!trades) return;
+    const tbody=document.querySelector('#'+prefix+'-trades-table tbody');
+    if(!tbody) return;
+    if(!trades.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">No trades yet</td></tr>';return;}
+    tbody.innerHTML=trades.map(t=>{
+      const pnlClass=t.pnl>=0?'profit':'loss';
+      return `<tr><td class="mono">${t.time}</td><td>${t.strategy}</td><td>${t.direction}</td><td class="mono">₹${Number(t.entry_price).toFixed(2)}</td><td class="mono">₹${Number(t.exit_price).toFixed(2)}</td><td class="mono ${pnlClass}">${t.pnl>=0?'+':''}₹${t.pnl.toFixed(0)}</td><td>${t.exit_reason||''}</td></tr>`;
+    }).join('');
+  }catch(e){}
+}
+
+async function loadAllTrades(){
+  try{
+    const filter=document.getElementById('all-trades-filter');
+    const instrument=filter?filter.value:'';
+    const qs='/trades?limit=200'+(instrument?'&instrument='+instrument:'');
+    const trades=await API.get(qs);
+    if(!trades) return;
+    const tbody=document.querySelector('#all-trades-table tbody');
+    if(!tbody) return;
+    if(!trades.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">No trades found</td></tr>';return;}
+    tbody.innerHTML=trades.map(t=>{
+      const pnlClass=t.pnl>=0?'profit':'loss';
+      const instColor=INSTRUMENT_COLORS[t.instrument]||'var(--text-secondary)';
+      return `<tr><td class="mono">${t.date}</td><td class="mono">${t.time}</td><td><span style="color:${instColor};font-weight:600">${t.instrument||'NIFTY'}</span></td><td>${t.strategy}</td><td>${t.direction}</td><td class="mono">₹${Number(t.entry_price).toFixed(2)}</td><td class="mono">₹${Number(t.exit_price).toFixed(2)}</td><td class="mono ${pnlClass}">${t.pnl>=0?'+':''}₹${t.pnl.toFixed(0)}</td><td>${t.exit_reason||''}</td></tr>`;
+    }).join('');
+  }catch(e){}
+}
 </script>
 </body>
 </html>

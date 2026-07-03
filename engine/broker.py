@@ -258,6 +258,21 @@ class BrokerConnection:
     # ── Instruments ─────────────────────────────────────────────────
 
     def download_instruments(self) -> list:
+        inst_file = settings.INSTRUMENTS_FILE
+        if inst_file.exists():
+            age_h = (time.time() - inst_file.stat().st_mtime) / 3600
+            if age_h < 24:
+                try:
+                    with open(inst_file) as f:
+                        instruments = json.load(f)
+                    logger.info(
+                        "Using cached instruments ({} items, {:.1f}h old)",
+                        len(instruments), age_h,
+                    )
+                    return instruments
+                except Exception as e:
+                    logger.warning("Cached instruments unreadable ({}), re-downloading", e)
+
         url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
         try:
             resp = requests.get(url, timeout=30)

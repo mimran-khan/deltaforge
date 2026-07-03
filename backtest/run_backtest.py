@@ -18,6 +18,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import settings
+from engine.premium_model import STRATEGY_SL_PCT, create_premium_state
+
+
+def _compute_dte_for_date(d: date) -> float:
+    """Days to next Nifty weekly expiry (Tuesday) from a given date."""
+    expiry_weekday = getattr(settings, 'NIFTY_EXPIRY_DAY', 1)  # Tuesday=1
+    days_ahead = (expiry_weekday - d.weekday()) % 7
+    return float(max(days_ahead, 0))
+
 
 DATA_DIR = PROJECT_ROOT / "data"
 
@@ -249,7 +258,6 @@ def run_compound_backtest(df: pd.DataFrame,
     Costs modeled per industry standard (spread + STT + exchange + impact).
     """
     from engine.multi_strategy_engine import MultiStrategyEngine
-    from engine.premium_model import create_premium_state
     from risk.adaptive_mode import AdaptiveModeController
 
     engine = engine_override if engine_override is not None else MultiStrategyEngine()
@@ -294,8 +302,9 @@ def run_compound_backtest(df: pd.DataFrame,
         daily_profit_target = day_start_cap * (getattr(settings, 'DAILY_PROFIT_TARGET_PCT', 35) / 100) if use_risk_gates else float('inf')
 
         per_lot = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
-        day_lots = max(1, int(capital / per_lot))
-        day_lots = min(day_lots, getattr(settings, 'MAX_LOTS_CAP', 10))
+        deployable = capital * (deploy_pct / 100)
+        day_lots = max(1, int(deployable / per_lot))
+        day_lots = min(day_lots, getattr(settings, 'MAX_LOTS_CAP', 20))
 
         # Multi-day warmup (like check_today.py and live engine)
         warmup_start = max(0, day_idx - WARMUP_DAYS)
@@ -320,6 +329,8 @@ def run_compound_backtest(df: pd.DataFrame,
 
             ap_min_conf = 65 if (adaptive and adaptive.mode.value != "AGGRESSIVE") else 60
             ap_lot_mult = 1.0
+            ap_sl_mult = 1.0
+            ap_target_mult = 1.0
             ap_max_sim = getattr(settings, 'MAX_SIMULTANEOUS_POSITIONS', 2)
             ap_max_trades = 8
             ap_trail_trigger = settings.TRAIL_TRIGGER_PCT
@@ -328,6 +339,8 @@ def run_compound_backtest(df: pd.DataFrame,
                 ap = adaptive.profile
                 ap_min_conf = ap.min_confidence
                 ap_lot_mult = ap.lot_multiplier
+                ap_sl_mult = ap.sl_multiplier
+                ap_target_mult = ap.target_multiplier
                 ap_max_sim = ap.max_simultaneous
                 ap_max_trades = ap.max_trades_per_day
                 ap_trail_trigger = ap.trail_trigger_pct
@@ -346,6 +359,37 @@ def run_compound_backtest(df: pd.DataFrame,
                     cur_prem,
                     trigger_pct=ap_trail_trigger,
                     trail_pct=ap_trail_pct)
+
+                partial_pct = getattr(settings, 'PARTIAL_PROFIT_PCT', 25)
+                if (not pos.get("partial_booked")
+                        and pos["entry_premium"] > 0
+                        and (cur_prem - pos["entry_premium"]) / pos["entry_premium"] * 100 >= partial_pct
+                        and pos["qty"] > lot_size):
+                    half_qty = (pos["qty"] // (2 * lot_size)) * lot_size
+                    if half_qty >= lot_size:
+                        partial_pnl = (cur_prem - pos["entry_premium"]) * half_qty
+                        partial_costs = _calc_realistic_costs(
+                            pos["entry_premium"], cur_prem, half_qty, day_lots)
+                        net_partial = partial_pnl - partial_costs
+                        capital += net_partial
+                        day_pnl += net_partial
+                        pos["qty"] -= half_qty
+                        pos["partial_booked"] = True
+                        pos["sl_premium"] = pos["entry_premium"]
+                        trades.append({
+                            "strategy": pos["signal_type"], "signal": pos["direction"],
+                            "entry_time": pos["entry_time"], "exit_time": ts,
+                            "entry_premium": round(pos["entry_premium"], 2),
+                            "exit_premium": round(cur_prem, 2),
+                            "peak_premium": round(pos["peak_premium"], 2),
+                            "peak_gain_pct": round(partial_pct, 2),
+                            "qty": half_qty, "lots": day_lots,
+                            "pnl": round(net_partial, 0), "reason": "PARTIAL",
+                            "capital_after": round(capital, 0),
+                        })
+                        day_trades += 1
+                        day_wins += 1
+                        consec_loss = 0
 
                 exit_reason = None
                 exit_prem = cur_prem
@@ -438,6 +482,7 @@ def run_compound_backtest(df: pd.DataFrame,
                     continue
 
                 theta = settings.get_scaled_theta(nifty_price)
+                dte = _compute_dte_for_date(day)
                 prem_state = create_premium_state(
                     entry_index_price=nifty_price,
                     direction=signal.direction,
@@ -447,12 +492,19 @@ def run_compound_backtest(df: pd.DataFrame,
                     sl_pct=settings.PREMIUM_SL_PCT,
                     confluence_score=signal.confidence,
                     signal_type=signal.signal_type,
+                    dte=dte,
                 )
+
+                if ap_target_mult != 1.0:
+                    prem_state.target_premium = (
+                        prem_state.entry_premium
+                        + (prem_state.target_premium - prem_state.entry_premium) * ap_target_mult
+                    )
 
                 spread = getattr(settings, 'BID_ASK_SPREAD', 0.30)
                 entry_premium = prem_state.entry_premium + spread
-                from engine.premium_model import STRATEGY_SL_PCT
-                eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, settings.PREMIUM_SL_PCT)
+                vol_ratio = getattr(signal, 'vol_ratio', 1.0)
+                eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, settings.PREMIUM_SL_PCT) * ap_sl_mult * vol_ratio
                 sl_premium = entry_premium * (1 - eff_sl / 100)
                 eff_lots = max(1, int(day_lots * ap_lot_mult))
                 qty = eff_lots * lot_size
@@ -479,8 +531,8 @@ def run_compound_backtest(df: pd.DataFrame,
             exit_prem = pos["prem_state"].current_premium(
                 nifty_price, pos["candles_held"])
             brokerage = getattr(settings, 'BROKERAGE_PER_ORDER', 20) * 2
-            stt = exit_prem * pos["qty"] * getattr(settings, 'STT_PCT', 0.0125) / 100
-            slippage = getattr(settings, 'SLIPPAGE_POINTS', 0.5) * pos["qty"]
+            stt = exit_prem * pos["qty"] * getattr(settings, 'STT_SELL_PCT', 0.05) / 100
+            slippage = getattr(settings, 'SLIPPAGE_POINTS', 0.30) * pos["qty"]
             costs = brokerage + stt + slippage
             raw_pnl = (exit_prem - pos["entry_premium"]) * pos["qty"]
             net_pnl = raw_pnl - costs
@@ -647,15 +699,73 @@ def print_results(results: dict):
     print()
 
 
+def _load_futures_data(instrument_name: str, days: int) -> pd.DataFrame:
+    """Load historical data for a futures instrument.
+
+    Looks for files named <instrument>_5m.csv in the data directory.
+    Falls back to Angel One historical API if available.
+    """
+    data_file = DATA_DIR / f"{instrument_name.lower()}_5m.csv"
+    combined_file = DATA_DIR / f"{instrument_name.lower()}_5m_combined.csv"
+
+    for f in [combined_file, data_file]:
+        if f.exists():
+            df = _load_5m_csv(f)
+            unique_days = sorted(set(df.index.date))
+            if len(unique_days) > days:
+                cutoff_days = unique_days[-days:]
+                df = df[df.index.date >= cutoff_days[0]]
+            return df
+
+    print(f"  No data file found for {instrument_name}.")
+    print(f"  Expected: {data_file} or {combined_file}")
+    print(f"  Download MCX/CDS historical data and save as 5m OHLCV CSV.")
+    return pd.DataFrame()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=100)
     parser.add_argument("--capital", type=float, default=10000)
-    parser.add_argument("--deploy-pct", type=float, default=80)
+    parser.add_argument("--deploy-pct", type=float, default=100)
+    parser.add_argument("--instrument", type=str, default="NIFTY",
+                        help="NIFTY, GOLD_PETAL, CRUDEOILM, or USDINR")
     args = parser.parse_args()
 
     logger.remove()
     logger.add(sys.stderr, level="ERROR")
+
+    instrument_name = args.instrument.upper()
+
+    if instrument_name != "NIFTY":
+        from config.instruments import get_instrument
+        inst = get_instrument(instrument_name)
+        if not inst:
+            print(f"Unknown instrument: {instrument_name}")
+            print("Available: NIFTY, GOLD_PETAL, CRUDEOILM, USDINR")
+            return
+
+        print(f"\nLoading {args.days} trading days of {inst.display_name} data...")
+        df = _load_futures_data(instrument_name, args.days)
+        if df.empty:
+            return
+        unique_days = sorted(set(df.index.date))
+        print(f"Loaded {len(df)} candles across {len(unique_days)} days")
+        lot_size = inst.lot_size
+
+        print(f"\n  ── FULL PERIOD ({len(unique_days)} days) ──")
+        print(f"  Instrument: {inst.display_name} ({inst.exchange})")
+        print(f"  Lot size: {lot_size} | Asset type: {inst.asset_type}")
+        results = run_compound_backtest(
+            df, starting_capital=args.capital,
+            lot_size=lot_size, deploy_pct=args.deploy_pct,
+        )
+        print_results(results)
+
+        pd.DataFrame(results["trades"]).to_csv(
+            settings.DATA_DIR / f"backtest_{instrument_name.lower()}_trades.csv", index=False)
+        print(f"  Saved: data/backtest_{instrument_name.lower()}_trades.csv")
+        return results
 
     print(f"\nLoading {args.days} trading days of Nifty data...")
     df = load_real_data(days=args.days)

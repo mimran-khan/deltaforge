@@ -84,31 +84,44 @@ def _clean_action(action: str) -> str:
 
 def send_trade_alert(action: str, strategy: str, symbol: str,
                      price: float, quantity: int, sl: float = 0,
-                     target: float = 0, pnl: float = 0):
+                     target: float = 0, pnl: float = 0,
+                     confidence: float = 0, capital: float = 0,
+                     daily_pnl: float = 0, win_count: int = 0,
+                     loss_count: int = 0):
     """Send formatted trade entry/exit alert with Slack rich formatting."""
     is_entry = "ENTRY" in action.upper()
 
     if is_entry:
+        sl_pct = ((price - sl) / price * 100) if price > 0 and sl > 0 else 0
+        tgt_pct = ((target - price) / price * 100) if price > 0 and target > 0 else 0
+        rr = abs(tgt_pct / sl_pct) if sl_pct != 0 else 0
         msg = (
             f":chart_with_upwards_trend: *TRADE OPENED*\n"
             f"{'─' * 20}\n"
-            f"*{symbol}*\n"
-            f"Entry: `Rs {price:.2f}`\n"
-            f"Qty: `{quantity}`\n"
-            f"SL: `Rs {sl:.2f}`"
+            f"*{symbol}* | `{strategy}`\n"
+            f"Entry: `Rs {price:.2f}` | Qty: `{quantity}`\n"
+            f"SL: `Rs {sl:.2f}` ({sl_pct:.1f}%)\n"
+            f"Target: `Rs {target:.2f}` ({tgt_pct:.1f}%)\n"
+            f"R:R `{rr:.1f}:1` | Conf: `{confidence:.0f}`"
         )
+        if capital > 0:
+            msg += f"\nCapital: `Rs {capital:,.0f}`"
     else:
         sign = "+" if pnl >= 0 else ""
         icon = ":white_check_mark:" if pnl >= 0 else ":x:"
         reason = _clean_action(action)
+        wr = (win_count / (win_count + loss_count) * 100) if (win_count + loss_count) > 0 else 0
         msg = (
             f"{icon} *TRADE CLOSED*\n"
             f"{'─' * 20}\n"
-            f"*{symbol}*\n"
-            f"Exit: `Rs {price:.2f}`\n"
-            f"P&L: `Rs {sign}{pnl:.0f}`\n"
-            f"Reason: {reason}"
+            f"*{symbol}* | `{strategy}`\n"
+            f"Exit: `Rs {price:.2f}` | Reason: {reason}\n"
+            f"P&L: *Rs {sign}{pnl:.0f}*\n"
+            f"Today: `Rs {'+' if daily_pnl >= 0 else ''}{daily_pnl:.0f}` | "
+            f"W/L: `{win_count}/{loss_count}` ({wr:.0f}%)"
         )
+        if capital > 0:
+            msg += f"\nCapital: `Rs {capital:,.0f}`"
     return send_alert(msg)
 
 
@@ -119,16 +132,30 @@ def send_eod_report(summary: dict):
     sign = "+" if daily_pnl >= 0 else ""
     icon = ":green_book:" if daily_pnl >= 0 else ":closed_book:"
 
+    daily_ret_pct = summary.get("daily_pnl_pct", 0)
+    cap = summary.get("capital", 0)
+    target_7pct = cap * 0.07 if cap > 0 else 0
+    on_track = daily_pnl >= target_7pct
+
+    streak = summary.get("streak", "")
+    streak_line = f"\nStreak: {streak}" if streak else ""
+
+    strategies = summary.get("strategy_breakdown", "")
+    strat_line = f"\nStrategies: {strategies}" if strategies else ""
+
     msg = (
         f"{icon} *EOD REPORT*\n"
-        f"{'─' * 20}\n"
-        f"Capital: `Rs {summary['capital']:.0f}`\n"
-        f"Day PnL: *Rs {sign}{daily_pnl:.0f}* ({summary['daily_pnl_pct']:.1f}%)\n"
-        f"Trades: {summary['trades']}\n"
-        f"Wins: {summary['wins']} | Losses: {summary['losses']}\n"
+        f"{'═' * 24}\n"
+        f"Capital: `Rs {cap:,.0f}`\n"
+        f"Day P&L: *Rs {sign}{daily_pnl:,.0f}* ({daily_ret_pct:.1f}%)\n"
+        f"Target (7%): Rs {target_7pct:,.0f} {'*HIT*' if on_track else '_missed_'}\n"
+        f"{'─' * 24}\n"
+        f"Trades: {summary.get('trades', 0)} | "
+        f"Wins: {summary.get('wins', 0)} | Losses: {summary.get('losses', 0)}\n"
         f"Win Rate: {win_rate:.0f}%\n"
-        f"Total PnL: `Rs {summary['total_pnl']:.0f}`\n"
-        f"Max DD: {summary['max_drawdown']:.1f}%"
+        f"Total P&L: `Rs {summary.get('total_pnl', 0):,.0f}`\n"
+        f"Max DD: {summary.get('max_drawdown', 0):.1f}%"
+        f"{streak_line}{strat_line}"
     )
     return send_alert(msg)
 

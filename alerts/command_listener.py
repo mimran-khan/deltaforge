@@ -34,8 +34,9 @@ from loguru import logger
 
 from config import settings
 from risk.kill_switch import (
-    is_halted, set_halt, clear_halt, is_session_running, SESSION_LOCK,
+    is_halted, set_halt, clear_halt, is_session_running,
     is_poller_running, acquire_poller_lock, release_poller_lock,
+    force_release_session_lock,
 )
 
 _alert_method = getattr(settings, "ALERT_METHOD", "slack")
@@ -260,7 +261,7 @@ class CommandRouter:
                 logger.error("Error during manual stop square-off: {}", e)
 
         killed = self.session_mgr.stop_session()
-        SESSION_LOCK.unlink(missing_ok=True)
+        force_release_session_lock()
 
         msg = "TRADING STOPPED\n\nKill switch activated."
         if killed:

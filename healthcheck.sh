@@ -6,6 +6,14 @@
 export TZ=Asia/Kolkata
 cd "$(dirname "$0")"
 
+if [ -x "./venv/bin/python" ]; then
+    _CA="$(./venv/bin/python -c "import certifi; print(certifi.where())" 2>/dev/null || true)"
+    if [ -n "$_CA" ]; then
+        export SSL_CERT_FILE="$_CA"
+        export REQUESTS_CA_BUNDLE="$_CA"
+    fi
+fi
+
 LOG="logs/healthcheck.log"
 mkdir -p logs
 
@@ -19,12 +27,21 @@ if [ "$DOW" -gt 5 ]; then
     exit 0
 fi
 
-# Only check during market-relevant hours (08:45 - 15:30 IST)
+# Check during market-relevant hours:
+#   NSE: 08:45 - 15:30 IST
+#   MCX: 08:45 - 23:35 IST (when MULTI_ASSET_ENABLED)
 HOUR=$(date +%H)
 MIN=$(date +%M)
 HHMM=$((10#$HOUR * 100 + 10#$MIN))
 
-if [ "$HHMM" -lt 845 ] || [ "$HHMM" -gt 1530 ]; then
+MULTI_ASSET=$(grep -o 'MULTI_ASSET_ENABLED=\(true\|1\)' .env 2>/dev/null)
+if [ -n "$MULTI_ASSET" ]; then
+    MARKET_CLOSE=2335
+else
+    MARKET_CLOSE=1530
+fi
+
+if [ "$HHMM" -lt 845 ] || [ "$HHMM" -gt "$MARKET_CLOSE" ]; then
     exit 0
 fi
 
@@ -33,6 +50,11 @@ TODAY=$(date +%Y-%m-%d)
 if grep -q "\"$TODAY\"" config/holidays.json 2>/dev/null; then
     log "Holiday ($TODAY) -- skip"
     exit 0
+fi
+
+# Passive internet ping only — never touch Wi-Fi from cron (caused disconnects)
+if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+    log "WARNING -- no internet (Wi-Fi left unchanged; fix manually or wait)"
 fi
 
 # Ensure dashboard API is up during market hours

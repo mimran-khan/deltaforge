@@ -22,17 +22,24 @@ from config import settings
 from risk.capital_tracker import CapitalTracker
 
 
-HALT_FLAG = settings.DATA_DIR / "HALT"
-SESSION_LOCK = settings.DATA_DIR / "session.lock"
-POLLER_LOCK = settings.DATA_DIR / "poller.lock"
+def _halt_path() -> Path:
+    return settings.DATA_DIR / "HALT"
+
+
+def _session_lock_path() -> Path:
+    return settings.DATA_DIR / "session.lock"
+
+
+def _poller_lock_path() -> Path:
+    return settings.DATA_DIR / "poller.lock"
 
 
 def is_halted() -> bool:
-    return HALT_FLAG.exists()
+    return _halt_path().exists()
 
 
 def set_halt(reason: str):
-    HALT_FLAG.write_text(json.dumps({
+    _halt_path().write_text(json.dumps({
         "halted_at": datetime.now(IST).isoformat(),
         "reason": reason,
     }))
@@ -40,8 +47,9 @@ def set_halt(reason: str):
 
 
 def clear_halt():
-    if HALT_FLAG.exists():
-        HALT_FLAG.unlink()
+    p = _halt_path()
+    if p.exists():
+        p.unlink()
         logger.info("Halt flag cleared")
 
 
@@ -63,10 +71,11 @@ def is_session_running() -> tuple[bool, int]:
     - PID is dead/zombie
     - Lock is older than 6 hours (hung process)
     """
-    if not SESSION_LOCK.exists():
+    lock = _session_lock_path()
+    if not lock.exists():
         return False, 0
     try:
-        data = json.loads(SESSION_LOCK.read_text())
+        data = json.loads(lock.read_text())
         pid = data.get("pid", 0)
         started = data.get("started_at", "")
 
@@ -79,7 +88,7 @@ def is_session_running() -> tuple[bool, int]:
                         "Session lock is {:.1f}h old (PID {}). Force-clearing stale lock.",
                         age_hours, pid,
                     )
-                    SESSION_LOCK.unlink(missing_ok=True)
+                    lock.unlink(missing_ok=True)
                     return False, 0
             except ValueError:
                 pass
@@ -88,10 +97,10 @@ def is_session_running() -> tuple[bool, int]:
             return True, pid
 
         logger.info("Cleaned stale session lock (PID {} dead)", pid)
-        SESSION_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
     except Exception as e:
         logger.warning("Session lock read error ({}), clearing", e)
-        SESSION_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
     return False, 0
 
 
@@ -102,7 +111,7 @@ def acquire_session_lock() -> bool:
         logger.warning("Session already running (PID {})", pid)
         return False
     try:
-        SESSION_LOCK.write_text(json.dumps({
+        _session_lock_path().write_text(json.dumps({
             "pid": os.getpid(),
             "started_at": datetime.now(IST).isoformat(),
         }))
@@ -114,15 +123,21 @@ def acquire_session_lock() -> bool:
 
 def release_session_lock():
     """Release the session lock if we own it."""
-    if not SESSION_LOCK.exists():
+    lock = _session_lock_path()
+    if not lock.exists():
         return
     try:
-        data = json.loads(SESSION_LOCK.read_text())
+        data = json.loads(lock.read_text())
         if data.get("pid") == os.getpid():
-            SESSION_LOCK.unlink(missing_ok=True)
+            lock.unlink(missing_ok=True)
             logger.info("Session lock released")
     except Exception:
-        SESSION_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
+
+
+def force_release_session_lock():
+    """Unconditionally remove the session lock (e.g. manual /stop command)."""
+    _session_lock_path().unlink(missing_ok=True)
 
 
 # ── Poller lock (prevents duplicate command listeners) ────────
@@ -130,17 +145,18 @@ def release_session_lock():
 
 def is_poller_running() -> tuple[bool, int]:
     """Check if a command listener is already running."""
-    if not POLLER_LOCK.exists():
+    lock = _poller_lock_path()
+    if not lock.exists():
         return False, 0
     try:
-        data = json.loads(POLLER_LOCK.read_text())
+        data = json.loads(lock.read_text())
         pid = data.get("pid", 0)
         if pid and _pid_alive(pid):
             return True, pid
-        POLLER_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
         logger.info("Cleaned stale poller lock (PID {} dead)", pid)
     except Exception:
-        POLLER_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
     return False, 0
 
 
@@ -151,7 +167,7 @@ def acquire_poller_lock() -> bool:
         logger.warning("Command listener already running (PID {})", pid)
         return False
     try:
-        POLLER_LOCK.write_text(json.dumps({
+        _poller_lock_path().write_text(json.dumps({
             "pid": os.getpid(),
             "started_at": datetime.now(IST).isoformat(),
         }))
@@ -163,15 +179,16 @@ def acquire_poller_lock() -> bool:
 
 def release_poller_lock():
     """Release the poller lock if we own it."""
-    if not POLLER_LOCK.exists():
+    lock = _poller_lock_path()
+    if not lock.exists():
         return
     try:
-        data = json.loads(POLLER_LOCK.read_text())
+        data = json.loads(lock.read_text())
         if data.get("pid") == os.getpid():
-            POLLER_LOCK.unlink(missing_ok=True)
+            lock.unlink(missing_ok=True)
             logger.info("Poller lock released")
     except Exception:
-        POLLER_LOCK.unlink(missing_ok=True)
+        lock.unlink(missing_ok=True)
 
 
 def send_kill_alert(reason: str):

@@ -6,6 +6,7 @@ import json
 import random
 import signal as _signal
 import sys
+import threading
 import time
 import subprocess
 from datetime import datetime, date
@@ -61,9 +62,24 @@ def is_trading_day() -> bool:
         return False
     today_str = today.strftime("%Y-%m-%d")
     if today_str in _NSE_HOLIDAYS:
-        logger.info("NSE holiday: {} -- skipping", today_str)
+        logger.info("NSE holiday: {} -- skipping Nifty", today_str)
         return False
     return True
+
+
+def is_mcx_evening_day() -> bool:
+    """Check if MCX evening session is available today.
+
+    On NSE holidays that fall on weekdays, MCX morning is closed
+    but the evening session (17:00-23:30) still runs.
+    """
+    today = datetime.now(IST)
+    if today.weekday() >= 5:
+        return False
+    today_str = today.strftime("%Y-%m-%d")
+    if today_str in _NSE_HOLIDAYS:
+        return True
+    return False
 
 
 class DailyScheduler:
@@ -72,6 +88,8 @@ class DailyScheduler:
     def __init__(self, enable_commands: bool = True):
         self.broker = BrokerConnection()
         self.engine: TradingEngine | None = None
+        self._multi_engine = None
+        self._multi_thread = None
         self.scheduler = BackgroundScheduler(timezone=IST)
         self._watchdog_proc = None
         self._dashboard_proc = None
@@ -80,9 +98,15 @@ class DailyScheduler:
 
     def run(self):
         """Entry point -- sets up scheduled jobs and blocks."""
+        self._mcx_only_mode = False
+
         if not is_trading_day():
-            logger.info("Not a trading day. Exiting.")
-            return
+            if is_mcx_evening_day() and settings.MULTI_ASSET_ENABLED:
+                logger.info("NSE holiday but MCX evening session available -- MCX-only mode")
+                self._mcx_only_mode = True
+            else:
+                logger.info("Not a trading day. Exiting.")
+                return
 
         running, pid = is_session_running()
         if running:
@@ -98,8 +122,8 @@ class DailyScheduler:
         atexit.register(release_session_lock)
 
         def _sig_handler(signum, frame):
-            logger.info("Signal {} received -- releasing session lock", signum)
-            release_session_lock()
+            logger.info("Signal {} received -- shutting down", signum)
+            self._cleanup()
             sys.exit(0)
 
         _signal.signal(_signal.SIGTERM, _sig_handler)
@@ -108,7 +132,8 @@ class DailyScheduler:
         logger.info("=" * 60)
         logger.info("DeltaForge -- DAILY SCHEDULER STARTED")
         logger.info("Date: {}", datetime.now(IST).strftime("%Y-%m-%d %A"))
-        logger.info("Mode: {}", settings.TRADING_MODE.upper())
+        logger.info("Mode: {} {}", settings.TRADING_MODE.upper(),
+                     "(MCX-ONLY)" if self._mcx_only_mode else "")
         logger.info("=" * 60)
 
         # Clear previous-day HALT unconditionally — risk engine will
@@ -121,10 +146,14 @@ class DailyScheduler:
         self._schedule_jobs()
         self.scheduler.start()
 
-        self._login_and_prepare()
+        if self._mcx_only_mode:
+            self._login_and_prepare_mcx_only()
+        else:
+            self._login_and_prepare()
 
         try:
-            self._wait_for_market_and_trade()
+            if not self._mcx_only_mode:
+                self._wait_for_market_and_trade()
             self._idle_until_logout()
         except KeyboardInterrupt:
             logger.info("Scheduler interrupted")
@@ -201,8 +230,60 @@ class DailyScheduler:
         else:
             logger.warning("No historical candles seeded -- HTF RSI will need warmup time")
 
+        caught = self.engine.catch_up_missed_bars()
+        if caught > 0:
+            if getattr(settings, 'LATE_START_CATCHUP_DRY_RUN', True):
+                logger.info("Late-start catch-up scanned {} morning bars (dry-run)", caught)
+            else:
+                logger.info("Late-start catch-up replayed {} morning bars", caught)
+
         if self._enable_commands:
             self._command_poller = CommandPoller(engine=self.engine)
+            self._command_poller.start()
+
+        self._start_watchdog()
+        self._ensure_dashboard()
+        self._start_multi_asset_engine()
+
+    def _login_and_prepare_mcx_only(self):
+        """Lightweight startup for MCX evening-only sessions (NSE holidays).
+
+        Skips Nifty engine entirely. Logs in, downloads instruments,
+        waits until 16:45, then starts the multi-asset engine.
+        """
+        logger.info("MCX-only mode: logging in...")
+        max_retries = 3
+        for attempt in range(max_retries):
+            if self.broker.login():
+                logger.info("Login successful (attempt {})", attempt + 1)
+                break
+            logger.warning("Login attempt {} failed, retrying in 30s...", attempt + 1)
+            time.sleep(30)
+        else:
+            logger.critical("All login attempts failed. Cannot trade today.")
+            send_system_alert("LOGIN FAILED",
+                              "All login attempts failed (MCX-only day).")
+            return
+
+        logger.info("Downloading instruments...")
+        self.broker.download_instruments()
+
+        now = datetime.now(IST)
+        mcx_pre_open = now.replace(hour=16, minute=45, second=0, microsecond=0)
+        if now < mcx_pre_open:
+            wait_secs = (mcx_pre_open - now).total_seconds()
+            logger.info("MCX evening pre-open at 16:45 -- waiting {:.0f} minutes",
+                        wait_secs / 60)
+            send_system_alert("MCX-ONLY DAY",
+                              f"NSE holiday. MCX evening session starts at 17:00. "
+                              f"Engine will activate at 16:45 ({wait_secs/60:.0f}m from now).")
+            time.sleep(wait_secs)
+
+        logger.info("Starting multi-asset engine for MCX evening session")
+        self._start_multi_asset_engine()
+
+        if self._enable_commands:
+            self._command_poller = CommandPoller(engine=None)
             self._command_poller.start()
 
         self._start_watchdog()
@@ -230,14 +311,67 @@ class DailyScheduler:
         else:
             logger.error("Engine or broker not ready")
 
+    def _start_multi_asset_engine(self):
+        """Start the multi-asset futures engine in a background thread.
+
+        Only activates when MULTI_ASSET_ENABLED=true.
+        Runs completely independently of the Nifty TradingEngine.
+        Thread handles its own startup delay to avoid blocking the main thread.
+        """
+
+        if not settings.MULTI_ASSET_ENABLED:
+            return
+
+        try:
+            from engine.multi_asset_engine import MultiAssetEngine
+        except ImportError as e:
+            logger.warning("Multi-asset engine not available: {}", e)
+            return
+
+        logger.info("Multi-Asset Engine will start in background (75s delay for rate-limit avoidance)")
+
+        def _multi_asset_thread_target():
+            try:
+                time.sleep(75)
+                logger.info("Starting Multi-Asset Engine (MULTI_ASSET_ENABLED=true)")
+                self._multi_engine = MultiAssetEngine(broker=self.broker)
+                self._multi_engine.start_day()
+                instruments = list(self._multi_engine.instrument_names)
+                send_system_alert("MULTI-ASSET STARTED",
+                                  f"Engine running: {', '.join(instruments)}")
+                self._multi_engine.run_loop(poll_interval=5)
+                logger.info("Multi-Asset Engine run_loop exited normally")
+            except Exception as e:
+                logger.critical("Multi-Asset Engine CRASHED: {}", e)
+                send_system_alert("MULTI-ASSET CRASHED",
+                                  f"Engine thread died: {e}")
+
+        self._multi_thread = threading.Thread(
+            target=_multi_asset_thread_target,
+            daemon=False,
+            name="multi-asset-engine",
+        )
+        self._multi_thread.start()
+
     def _idle_until_logout(self):
-        """Keep process alive so APScheduler EOD/logout jobs can fire."""
-        logout_parts = settings.SESSION_LOGOUT_TIME.split(":")
+        """Keep process alive so APScheduler EOD/logout jobs can fire.
+
+        When MULTI_ASSET_ENABLED, extends idle period to cover MCX close (23:35).
+        """
+        logout_time = settings.SESSION_LOGOUT_TIME
+        if settings.MULTI_ASSET_ENABLED:
+            from config.instruments import get_latest_eod_time
+            latest_eod = get_latest_eod_time()
+            if latest_eod > logout_time:
+                logout_time = latest_eod
+                logger.info("Extended idle until {} for multi-asset EOD", logout_time)
+
+        logout_parts = logout_time.split(":")
         logout_h, logout_m = int(logout_parts[0]), int(logout_parts[1])
         while True:
             now = datetime.now(IST)
             if now.hour > logout_h or (now.hour == logout_h and now.minute >= logout_m):
-                logger.info("Reached SESSION_LOGOUT_TIME ({}) -- shutting down", settings.SESSION_LOGOUT_TIME)
+                logger.info("Reached logout time ({}) -- shutting down", logout_time)
                 break
             time.sleep(60)
 
@@ -314,6 +448,12 @@ class DailyScheduler:
 
     def _logout(self):
         logger.info("Scheduled session logout")
+        if self._multi_engine:
+            self._multi_engine.stop()
+            if self._multi_thread and self._multi_thread.is_alive():
+                self._multi_thread.join(timeout=15)
+        if self.engine:
+            self.engine.stop()
         self.broker.logout()
         send_system_alert("Session Ended", "Daily session logged out.")
 
@@ -351,12 +491,41 @@ class DailyScheduler:
     def _ensure_dashboard(self):
         """Start dashboard API/UI on :8900 if not already listening."""
         import socket
+        import urllib.error
+        import urllib.request
+
+        def _dashboard_project_root() -> str | None:
+            try:
+                with urllib.request.urlopen(
+                    "http://127.0.0.1:8900/api/status", timeout=2
+                ) as resp:
+                    payload = json.loads(resp.read().decode())
+                return payload.get("project_root")
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+                return None
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             if sock.connect_ex(("127.0.0.1", 8900)) == 0:
-                logger.info("Dashboard already running on http://localhost:8900")
-                return
+                expected = str(PROJECT_ROOT.resolve())
+                actual = _dashboard_project_root()
+                if actual and actual != expected:
+                    logger.warning(
+                        "Dashboard on :8900 belongs to {} -- restarting for {}",
+                        actual, expected,
+                    )
+                    try:
+                        subprocess.run(
+                            "lsof -ti :8900 | xargs kill",
+                            shell=True,
+                            check=False,
+                        )
+                    except (subprocess.SubprocessError, FileNotFoundError):
+                        pass
+                    time.sleep(1)
+                else:
+                    logger.info("Dashboard already running on http://localhost:8900")
+                    return
         finally:
             sock.close()
 
@@ -379,6 +548,17 @@ class DailyScheduler:
             logger.error("Dashboard start failed: {}", e)
 
     def _cleanup(self):
+        if self._multi_engine:
+            logger.info("Stopping multi-asset engine...")
+            self._multi_engine.stop()
+        if self._multi_thread and self._multi_thread.is_alive():
+            self._multi_thread.join(timeout=15)
+            if self._multi_thread.is_alive():
+                logger.warning("Multi-asset thread did not exit within 15s -- proceeding with shutdown")
+            else:
+                logger.info("Multi-asset engine stopped")
+        elif self._multi_engine:
+            logger.info("Multi-asset engine stopped")
         if self._command_poller:
             self._command_poller.stop()
         if self._watchdog_proc:

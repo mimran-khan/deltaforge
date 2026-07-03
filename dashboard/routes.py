@@ -9,7 +9,7 @@ from config import settings
 from dashboard import data_access as da
 from dashboard.models import (
     StatusResponse, CapitalResponse, TradeRecord, TradeSummary,
-    StrategyStats, RiskGate, BrokerInfo,
+    StrategyStats, RiskGate, BrokerInfo, InstrumentStatus,
 )
 
 router = APIRouter(prefix="/api")
@@ -41,25 +41,28 @@ def capital():
 def trades(
     date: Optional[str] = Query(None, description="YYYY-MM-DD"),
     strategy: Optional[str] = Query(None),
+    instrument: Optional[str] = Query(None, description="NIFTY, GOLD_PETAL, CRUDEOILM, USDINR"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     return da.get_trades(target_date=date, strategy=strategy,
-                         limit=limit, offset=offset)
+                         instrument=instrument, limit=limit, offset=offset)
 
 
 @router.get("/trades/summary", response_model=TradeSummary)
 def trades_summary(
     date: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    instrument: Optional[str] = Query(None),
 ):
-    return da.get_trades_summary(target_date=date)
+    return da.get_trades_summary(target_date=date, instrument=instrument)
 
 
 @router.get("/trades/strategy-stats", response_model=list[StrategyStats])
 def strategy_stats(
     min_trades: int = Query(1, ge=1),
+    instrument: Optional[str] = Query(None),
 ):
-    return da.get_strategy_stats(min_trades=min_trades)
+    return da.get_strategy_stats(min_trades=min_trades, instrument=instrument)
 
 
 @router.get("/events")
@@ -103,15 +106,37 @@ def engine_state():
     return da.get_engine_state()
 
 
+@router.get("/engine/multi-asset")
+def multi_asset_state():
+    return da.get_multi_asset_state()
+
+
 @router.get("/candles")
-def candles():
-    state = da.get_engine_state()
-    return state.get("candles", [])
+def candles(
+    tf: Optional[str] = Query("5m", description="1m, 5m, 15m, or 1H"),
+    instrument: Optional[str] = Query(None, description="NIFTY, GOLD_PETAL, CRUDEOILM, USDINR"),
+):
+    return da.get_candles(tf=tf, instrument=instrument)
 
 
 @router.get("/signals")
 def signals():
     return da.get_signals()
+
+
+@router.get("/analytics")
+def analytics():
+    return da.get_analytics()
+
+
+@router.get("/trades/strategy-details")
+def strategy_details():
+    return da.get_strategy_details()
+
+
+@router.get("/instruments", response_model=list[InstrumentStatus])
+def instruments():
+    return da.get_instruments()
 
 
 @router.post("/halt")
