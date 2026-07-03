@@ -5,6 +5,10 @@
 <p align="center"><strong>Stop watching charts. Start trading systems.</strong></p>
 
 <p align="center">
+  <a href="https://mimran-khan.github.io/deltaforge/"><img src="https://img.shields.io/badge/📊_Live_Dashboard-View_Performance-blueviolet?style=for-the-badge&logo=github-pages&logoColor=white" alt="Live Dashboard"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/mimran-khan/deltaforge/actions/workflows/ci.yml"><img src="https://github.com/mimran-khan/deltaforge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/mimran-khan/deltaforge/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white" alt="Python 3.9+"></a>
