@@ -584,6 +584,78 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
 
+/* Calendar */
+.calendar-container { margin-bottom: 24px; }
+.calendar-month {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 12px;
+}
+.calendar-month-title {
+  font-size: 0.85rem; font-weight: 700; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.calendar-month-pnl { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.calendar-header {
+  font-size: 0.65rem; color: var(--text-muted); text-align: center;
+  padding: 4px 0; font-weight: 600;
+}
+.calendar-day {
+  aspect-ratio: 1; border-radius: 6px; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-size: 0.7rem; position: relative; min-height: 44px;
+  transition: transform 0.1s;
+}
+.calendar-day:hover { transform: scale(1.1); z-index: 2; }
+.calendar-day-num { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 1px; }
+.calendar-day-pnl { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 700; }
+.calendar-day.empty { background: transparent; }
+.calendar-day.no-trade { background: var(--bg); border: 1px solid var(--border); }
+.calendar-day.profit { background: rgba(38, 166, 154, 0.15); border: 1px solid rgba(38, 166, 154, 0.4); }
+.calendar-day.profit .calendar-day-pnl { color: var(--green); }
+.calendar-day.loss { background: rgba(239, 83, 80, 0.15); border: 1px solid rgba(239, 83, 80, 0.4); }
+.calendar-day.loss .calendar-day-pnl { color: var(--red); }
+.calendar-day.big-profit { background: rgba(38, 166, 154, 0.3); border: 1px solid rgba(38, 166, 154, 0.7); box-shadow: 0 0 8px rgba(38, 166, 154, 0.2); }
+.calendar-day.big-loss { background: rgba(239, 83, 80, 0.3); border: 1px solid rgba(239, 83, 80, 0.7); box-shadow: 0 0 8px rgba(239, 83, 80, 0.2); }
+.calendar-day.weekend { opacity: 0.3; }
+.calendar-legend {
+  display: flex; gap: 12px; justify-content: center; margin-top: 10px;
+  font-size: 0.65rem; color: var(--text-dim);
+}
+.calendar-legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-box { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Win Streak */
+.streak-bar {
+  display: flex; gap: 2px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.streak-dot {
+  width: 14px; height: 14px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700; color: #fff;
+}
+.streak-dot.win { background: var(--green); }
+.streak-dot.loss { background: var(--red); }
+.streak-dot.flat { background: var(--text-muted); }
+
+/* Donut Chart */
+.donut-container {
+  display: flex; gap: 24px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 24px;
+}
+.donut-chart { position: relative; width: 140px; height: 140px; }
+.donut-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-center-val { font-size: 1.2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.donut-center-label { font-size: 0.65rem; color: var(--text-dim); }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; }
+.donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+.donut-legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
 /* Responsive */
 @media (max-width: 640px) {
   .trade-grid { grid-template-columns: 1fr 1fr; }
@@ -591,6 +663,9 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   .day-context { flex-direction: column; gap: 4px; }
   .strat-table { font-size: 0.72rem; }
   .strat-table th, .strat-table td { padding: 6px 8px; }
+  .calendar-grid { gap: 2px; }
+  .calendar-day { min-height: 36px; }
+  .calendar-day-pnl { font-size: 0.5rem; }
 }
 
 .footer {
@@ -598,6 +673,199 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   font-size: 0.7rem; border-top: 1px solid var(--border); margin-top: 24px;
 }
 '''
+
+
+def build_calendar(trades: list[dict]) -> str:
+    """Build a monthly calendar heatmap showing day-wise PnL."""
+    import calendar
+    from collections import defaultdict
+
+    daily_pnl: dict[str, float] = defaultdict(float)
+    daily_trades: dict[str, int] = defaultdict(int)
+    for t in trades:
+        d = t.get("date", "")
+        if d:
+            daily_pnl[d] += t.get("pnl", 0)
+            daily_trades[d] += 1
+
+    if not daily_pnl:
+        return ""
+
+    all_dates = sorted(daily_pnl.keys())
+    first = datetime.strptime(all_dates[0], "%Y-%m-%d")
+    last = datetime.strptime(all_dates[-1], "%Y-%m-%d")
+
+    months = []
+    cur = first.replace(day=1)
+    while cur <= last:
+        months.append((cur.year, cur.month))
+        if cur.month == 12:
+            cur = cur.replace(year=cur.year + 1, month=1)
+        else:
+            cur = cur.replace(month=cur.month + 1)
+
+    abs_max = max(abs(v) for v in daily_pnl.values()) if daily_pnl else 1
+
+    html = '<div class="section-label">Calendar P&L</div><div class="calendar-container">'
+
+    for year, month in months:
+        month_name = calendar.month_name[month]
+        cal = calendar.monthcalendar(year, month)
+
+        month_pnl = sum(
+            v for d, v in daily_pnl.items()
+            if d.startswith(f"{year}-{month:02d}")
+        )
+        month_cls = _pnl_class(month_pnl)
+
+        html += f'''<div class="calendar-month">
+          <div class="calendar-month-title">
+            <span>{month_name} {year}</span>
+            <span class="calendar-month-pnl {month_cls}">{_pnl_sign(month_pnl)}</span>
+          </div>
+          <div class="calendar-grid">
+            <div class="calendar-header">Mon</div>
+            <div class="calendar-header">Tue</div>
+            <div class="calendar-header">Wed</div>
+            <div class="calendar-header">Thu</div>
+            <div class="calendar-header">Fri</div>
+            <div class="calendar-header">Sat</div>
+            <div class="calendar-header">Sun</div>'''
+
+        for week in cal:
+            for dow, day_num in enumerate(week):
+                if day_num == 0:
+                    html += '<div class="calendar-day empty"></div>'
+                    continue
+
+                date_str = f"{year}-{month:02d}-{day_num:02d}"
+                is_weekend = dow >= 5
+
+                if is_weekend:
+                    html += f'<div class="calendar-day weekend no-trade"><span class="calendar-day-num">{day_num}</span></div>'
+                elif date_str in daily_pnl:
+                    pnl = daily_pnl[date_str]
+                    n_trades = daily_trades[date_str]
+                    intensity = abs(pnl) / abs_max
+
+                    if pnl > 0:
+                        cls = "big-profit" if intensity > 0.5 else "profit"
+                    else:
+                        cls = "big-loss" if intensity > 0.5 else "loss"
+
+                    pnl_str = f"+{pnl/1000:.1f}k" if pnl > 0 else f"{pnl/1000:.1f}k"
+                    html += f'<div class="calendar-day {cls}" title="{date_str}: {_pnl_sign(pnl)} ({n_trades} trades)"><span class="calendar-day-num">{day_num}</span><span class="calendar-day-pnl">{pnl_str}</span></div>'
+                else:
+                    html += f'<div class="calendar-day no-trade"><span class="calendar-day-num">{day_num}</span></div>'
+
+        html += '</div></div>'
+
+    html += '''
+      <div class="calendar-legend">
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(239,83,80,0.3);border:1px solid rgba(239,83,80,0.7)"></div>Big Loss</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(239,83,80,0.15);border:1px solid rgba(239,83,80,0.4)"></div>Loss</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:var(--bg);border:1px solid var(--border)"></div>No Trade</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(38,166,154,0.15);border:1px solid rgba(38,166,154,0.4)"></div>Profit</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(38,166,154,0.3);border:1px solid rgba(38,166,154,0.7)"></div>Big Profit</div>
+      </div>
+    </div>'''
+
+    return html
+
+
+def build_win_streak(trades: list[dict]) -> str:
+    """Build a visual win/loss streak bar from daily results."""
+    from collections import defaultdict
+    daily_pnl: dict[str, float] = defaultdict(float)
+    for t in trades:
+        d = t.get("date", "")
+        if d:
+            daily_pnl[d] += t.get("pnl", 0)
+
+    if not daily_pnl:
+        return ""
+
+    html = '<div class="section-label">Daily Win/Loss Streak</div><div class="streak-bar">'
+    for d in sorted(daily_pnl.keys()):
+        pnl = daily_pnl[d]
+        if pnl > 0:
+            cls = "win"
+            title = f"{d}: +{pnl:,.0f}"
+        elif pnl < 0:
+            cls = "loss"
+            title = f"{d}: {pnl:,.0f}"
+        else:
+            cls = "flat"
+            title = f"{d}: flat"
+        html += f'<div class="streak-dot {cls}" title="{title}"></div>'
+
+    html += '</div>'
+    return html
+
+
+def build_donut_chart(trades: list[dict]) -> str:
+    """Build SVG donut charts for win/loss ratio and strategy split."""
+    wins = len([t for t in trades if t.get("pnl", 0) > 0])
+    losses = len(trades) - wins
+    total = len(trades) or 1
+    win_pct = wins / total
+    loss_pct = losses / total
+
+    r = 55
+    cx, cy = 70, 70
+    circumference = 2 * 3.14159 * r
+
+    win_dash = win_pct * circumference
+    loss_dash = loss_pct * circumference
+
+    win_svg = f'''<svg width="140" height="140" viewBox="0 0 140 140">
+      <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="var(--border)" stroke-width="14"/>
+      <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="var(--green)" stroke-width="14"
+        stroke-dasharray="{win_dash:.1f} {circumference:.1f}"
+        stroke-dashoffset="0" transform="rotate(-90 {cx} {cy})"/>
+      <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="var(--red)" stroke-width="14"
+        stroke-dasharray="{loss_dash:.1f} {circumference:.1f}"
+        stroke-dashoffset="-{win_dash:.1f}" transform="rotate(-90 {cx} {cy})"/>
+    </svg>'''
+
+    strats: dict[str, float] = {}
+    for t in trades:
+        s = t.get("strategy", "OTHER")
+        strats[s] = strats.get(s, 0) + abs(t.get("pnl", 0))
+    strat_total = sum(strats.values()) or 1
+    strat_colors = ["#2962ff", "#ff8c00", "#00bcd4", "#9c27b0", "#4caf50", "#ff5722", "#607d8b"]
+
+    strat_legend = ""
+    for i, (s, val) in enumerate(sorted(strats.items(), key=lambda x: -x[1])):
+        pct = val / strat_total * 100
+        color = strat_colors[i % len(strat_colors)]
+        strat_legend += f'''<div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:{color}"></div>
+          <span>{s} ({pct:.0f}%)</span>
+        </div>'''
+
+    return f'''
+    <div class="section-label">Performance Overview</div>
+    <div class="donut-container">
+      <div class="donut-chart">
+        {win_svg}
+        <div class="donut-center">
+          <div class="donut-center-val pnl-pos">{wins}</div>
+          <div class="donut-center-label">Wins / {total}</div>
+        </div>
+      </div>
+      <div class="donut-legend">
+        <div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:var(--green)"></div>
+          <span>Wins: {wins} ({win_pct*100:.0f}%)</span>
+        </div>
+        <div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:var(--red)"></div>
+          <span>Losses: {losses} ({loss_pct*100:.0f}%)</span>
+        </div>
+        {strat_legend}
+      </div>
+    </div>'''
 
 
 def generate_html(
@@ -655,6 +923,15 @@ def generate_html(
       {build_day_pnl_bars(trades)}
     </div>''' if trades else ""
 
+    # Calendar heatmap
+    calendar_html = build_calendar(trades)
+
+    # Win streak
+    streak_html = build_win_streak(trades)
+
+    # Donut charts
+    donut_html = build_donut_chart(trades)
+
     # Day sections (most recent first)
     by_date: dict[str, list[dict]] = {}
     for t in trades:
@@ -695,6 +972,9 @@ def generate_html(
   {kpi_html}
   {equity_html}
   {bars_html}
+  {calendar_html}
+  {streak_html}
+  {donut_html}
   {strat_html}
   {days_html}
 

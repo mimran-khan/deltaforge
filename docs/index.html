@@ -126,6 +126,78 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
 
+/* Calendar */
+.calendar-container { margin-bottom: 24px; }
+.calendar-month {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; margin-bottom: 12px;
+}
+.calendar-month-title {
+  font-size: 0.85rem; font-weight: 700; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.calendar-month-pnl { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+.calendar-header {
+  font-size: 0.65rem; color: var(--text-muted); text-align: center;
+  padding: 4px 0; font-weight: 600;
+}
+.calendar-day {
+  aspect-ratio: 1; border-radius: 6px; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  font-size: 0.7rem; position: relative; min-height: 44px;
+  transition: transform 0.1s;
+}
+.calendar-day:hover { transform: scale(1.1); z-index: 2; }
+.calendar-day-num { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 1px; }
+.calendar-day-pnl { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 700; }
+.calendar-day.empty { background: transparent; }
+.calendar-day.no-trade { background: var(--bg); border: 1px solid var(--border); }
+.calendar-day.profit { background: rgba(38, 166, 154, 0.15); border: 1px solid rgba(38, 166, 154, 0.4); }
+.calendar-day.profit .calendar-day-pnl { color: var(--green); }
+.calendar-day.loss { background: rgba(239, 83, 80, 0.15); border: 1px solid rgba(239, 83, 80, 0.4); }
+.calendar-day.loss .calendar-day-pnl { color: var(--red); }
+.calendar-day.big-profit { background: rgba(38, 166, 154, 0.3); border: 1px solid rgba(38, 166, 154, 0.7); box-shadow: 0 0 8px rgba(38, 166, 154, 0.2); }
+.calendar-day.big-loss { background: rgba(239, 83, 80, 0.3); border: 1px solid rgba(239, 83, 80, 0.7); box-shadow: 0 0 8px rgba(239, 83, 80, 0.2); }
+.calendar-day.weekend { opacity: 0.3; }
+.calendar-legend {
+  display: flex; gap: 12px; justify-content: center; margin-top: 10px;
+  font-size: 0.65rem; color: var(--text-dim);
+}
+.calendar-legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-box { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Win Streak */
+.streak-bar {
+  display: flex; gap: 2px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.streak-dot {
+  width: 14px; height: 14px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; font-weight: 700; color: #fff;
+}
+.streak-dot.win { background: var(--green); }
+.streak-dot.loss { background: var(--red); }
+.streak-dot.flat { background: var(--text-muted); }
+
+/* Donut Chart */
+.donut-container {
+  display: flex; gap: 24px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 24px;
+}
+.donut-chart { position: relative; width: 140px; height: 140px; }
+.donut-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-center-val { font-size: 1.2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.donut-center-label { font-size: 0.65rem; color: var(--text-dim); }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; }
+.donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+.donut-legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
 /* Responsive */
 @media (max-width: 640px) {
   .trade-grid { grid-template-columns: 1fr 1fr; }
@@ -133,6 +205,9 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   .day-context { flex-direction: column; gap: 4px; }
   .strat-table { font-size: 0.72rem; }
   .strat-table th, .strat-table td { padding: 6px 8px; }
+  .calendar-grid { gap: 2px; }
+  .calendar-day { min-height: 36px; }
+  .calendar-day-pnl { font-size: 0.5rem; }
 }
 
 .footer {
@@ -149,7 +224,7 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
       <div class="updated">Trade Report &middot; 20 trading days</div>
     </div>
     <div class="header-right">
-      <div>Generated Jul 03, 2026 23:55 IST</div>
+      <div>Generated Jul 04, 2026 00:02 IST</div>
       <div class="updated">Paper Trading &middot; MultiStratV11</div>
     </div>
   </div>
@@ -184,6 +259,103 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
   <line x1="10" y1="60.0" x2="790" y2="60.0" stroke="#444" stroke-width="1"/>
   <rect x="12.0" y="60.0" width="35.0" height="1.9" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-02: -1,077.66</title></rect><text x="29.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-02</text><rect x="51.0" y="60.0" width="35.0" height="5.6" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-03: -3,143.89</title></rect><text x="68.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-03</text><rect x="90.0" y="60.0" width="35.0" height="7.4" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-04: -4,182.08</title></rect><text x="107.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-04</text><rect x="129.0" y="59.2" width="35.0" height="0.8" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-05: +455.58</title></rect><text x="146.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-05</text><rect x="168.0" y="56.6" width="35.0" height="3.4" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-08: +1,910.35</title></rect><text x="185.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-08</text><rect x="207.0" y="58.9" width="35.0" height="1.1" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-09: +642.34</title></rect><text x="224.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-09</text><rect x="246.0" y="60.0" width="35.0" height="1.4" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-10: -801.53</title></rect><text x="263.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-10</text><rect x="285.0" y="60.0" width="35.0" height="0.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-11: -83.22</title></rect><text x="302.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-11</text><rect x="324.0" y="42.5" width="35.0" height="17.5" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-12: +9,833.17</title></rect><text x="341.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-12</text><rect x="363.0" y="60.0" width="35.0" height="5.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-15: -2,891.87</title></rect><text x="380.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-15</text><rect x="402.0" y="58.8" width="35.0" height="1.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-16: +673.44</title></rect><text x="419.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-16</text><rect x="441.0" y="60.0" width="35.0" height="7.5" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-18: -4,215.94</title></rect><text x="458.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-18</text><rect x="480.0" y="60.0" width="35.0" height="4.2" fill="#ef5350" rx="2" opacity="0.85"><title>2026-06-22: -2,333.71</title></rect><text x="497.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-22</text><rect x="519.0" y="53.3" width="35.0" height="6.7" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-23: +3,784.47</title></rect><text x="536.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-23</text><rect x="558.0" y="57.8" width="35.0" height="2.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-24: +1,219.27</title></rect><text x="575.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-24</text><rect x="597.0" y="36.8" width="35.0" height="23.2" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-25: +13,058.11</title></rect><text x="614.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-25</text><rect x="636.0" y="15.0" width="35.0" height="45.0" fill="#26a69a" rx="2" opacity="0.85"><title>2026-06-30: +25,298.01</title></rect><text x="653.5" y="118" fill="#666" font-size="8" text-anchor="middle">06-30</text><rect x="675.0" y="55.2" width="35.0" height="4.8" fill="#26a69a" rx="2" opacity="0.85"><title>2026-07-01: +2,694.96</title></rect><text x="692.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-01</text><rect x="714.0" y="37.4" width="35.0" height="22.6" fill="#26a69a" rx="2" opacity="0.85"><title>2026-07-02: +12,694.06</title></rect><text x="731.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-02</text><rect x="753.0" y="60.0" width="35.0" height="15.1" fill="#ef5350" rx="2" opacity="0.85"><title>2026-07-03: -8,463.51</title></rect><text x="770.5" y="118" fill="#666" font-size="8" text-anchor="middle">07-03</text>
 </svg>
+    </div>
+  <div class="section-label">Calendar P&L</div><div class="calendar-container"><div class="calendar-month">
+          <div class="calendar-month-title">
+            <span>June 2026</span>
+            <span class="calendar-month-pnl pnl-pos">+38,144.84</span>
+          </div>
+          <div class="calendar-grid">
+            <div class="calendar-header">Mon</div>
+            <div class="calendar-header">Tue</div>
+            <div class="calendar-header">Wed</div>
+            <div class="calendar-header">Thu</div>
+            <div class="calendar-header">Fri</div>
+            <div class="calendar-header">Sat</div>
+            <div class="calendar-header">Sun</div><div class="calendar-day no-trade"><span class="calendar-day-num">1</span></div><div class="calendar-day loss" title="2026-06-02: -1,077.66 (1 trades)"><span class="calendar-day-num">2</span><span class="calendar-day-pnl">-1.1k</span></div><div class="calendar-day loss" title="2026-06-03: -3,143.89 (6 trades)"><span class="calendar-day-num">3</span><span class="calendar-day-pnl">-3.1k</span></div><div class="calendar-day loss" title="2026-06-04: -4,182.08 (10 trades)"><span class="calendar-day-num">4</span><span class="calendar-day-pnl">-4.2k</span></div><div class="calendar-day profit" title="2026-06-05: +455.58 (4 trades)"><span class="calendar-day-num">5</span><span class="calendar-day-pnl">+0.5k</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">6</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">7</span></div><div class="calendar-day profit" title="2026-06-08: +1,910.35 (1 trades)"><span class="calendar-day-num">8</span><span class="calendar-day-pnl">+1.9k</span></div><div class="calendar-day profit" title="2026-06-09: +642.34 (1 trades)"><span class="calendar-day-num">9</span><span class="calendar-day-pnl">+0.6k</span></div><div class="calendar-day loss" title="2026-06-10: -801.53 (3 trades)"><span class="calendar-day-num">10</span><span class="calendar-day-pnl">-0.8k</span></div><div class="calendar-day loss" title="2026-06-11: -83.22 (4 trades)"><span class="calendar-day-num">11</span><span class="calendar-day-pnl">-0.1k</span></div><div class="calendar-day profit" title="2026-06-12: +9,833.17 (1 trades)"><span class="calendar-day-num">12</span><span class="calendar-day-pnl">+9.8k</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">13</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">14</span></div><div class="calendar-day loss" title="2026-06-15: -2,891.87 (2 trades)"><span class="calendar-day-num">15</span><span class="calendar-day-pnl">-2.9k</span></div><div class="calendar-day profit" title="2026-06-16: +673.44 (1 trades)"><span class="calendar-day-num">16</span><span class="calendar-day-pnl">+0.7k</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">17</span></div><div class="calendar-day loss" title="2026-06-18: -4,215.94 (1 trades)"><span class="calendar-day-num">18</span><span class="calendar-day-pnl">-4.2k</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">19</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">20</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">21</span></div><div class="calendar-day loss" title="2026-06-22: -2,333.71 (6 trades)"><span class="calendar-day-num">22</span><span class="calendar-day-pnl">-2.3k</span></div><div class="calendar-day profit" title="2026-06-23: +3,784.47 (3 trades)"><span class="calendar-day-num">23</span><span class="calendar-day-pnl">+3.8k</span></div><div class="calendar-day profit" title="2026-06-24: +1,219.27 (5 trades)"><span class="calendar-day-num">24</span><span class="calendar-day-pnl">+1.2k</span></div><div class="calendar-day big-profit" title="2026-06-25: +13,058.11 (4 trades)"><span class="calendar-day-num">25</span><span class="calendar-day-pnl">+13.1k</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">26</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">27</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">28</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">29</span></div><div class="calendar-day big-profit" title="2026-06-30: +25,298.01 (5 trades)"><span class="calendar-day-num">30</span><span class="calendar-day-pnl">+25.3k</span></div><div class="calendar-day empty"></div><div class="calendar-day empty"></div><div class="calendar-day empty"></div><div class="calendar-day empty"></div><div class="calendar-day empty"></div></div></div><div class="calendar-month">
+          <div class="calendar-month-title">
+            <span>July 2026</span>
+            <span class="calendar-month-pnl pnl-pos">+6,925.51</span>
+          </div>
+          <div class="calendar-grid">
+            <div class="calendar-header">Mon</div>
+            <div class="calendar-header">Tue</div>
+            <div class="calendar-header">Wed</div>
+            <div class="calendar-header">Thu</div>
+            <div class="calendar-header">Fri</div>
+            <div class="calendar-header">Sat</div>
+            <div class="calendar-header">Sun</div><div class="calendar-day empty"></div><div class="calendar-day empty"></div><div class="calendar-day profit" title="2026-07-01: +2,694.96 (5 trades)"><span class="calendar-day-num">1</span><span class="calendar-day-pnl">+2.7k</span></div><div class="calendar-day big-profit" title="2026-07-02: +12,694.06 (6 trades)"><span class="calendar-day-num">2</span><span class="calendar-day-pnl">+12.7k</span></div><div class="calendar-day loss" title="2026-07-03: -8,463.51 (2 trades)"><span class="calendar-day-num">3</span><span class="calendar-day-pnl">-8.5k</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">4</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">5</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">6</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">7</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">8</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">9</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">10</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">11</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">12</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">13</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">14</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">15</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">16</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">17</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">18</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">19</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">20</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">21</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">22</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">23</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">24</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">25</span></div><div class="calendar-day weekend no-trade"><span class="calendar-day-num">26</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">27</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">28</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">29</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">30</span></div><div class="calendar-day no-trade"><span class="calendar-day-num">31</span></div><div class="calendar-day empty"></div><div class="calendar-day empty"></div></div></div>
+      <div class="calendar-legend">
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(239,83,80,0.3);border:1px solid rgba(239,83,80,0.7)"></div>Big Loss</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(239,83,80,0.15);border:1px solid rgba(239,83,80,0.4)"></div>Loss</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:var(--bg);border:1px solid var(--border)"></div>No Trade</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(38,166,154,0.15);border:1px solid rgba(38,166,154,0.4)"></div>Profit</div>
+        <div class="calendar-legend-item"><div class="legend-box" style="background:rgba(38,166,154,0.3);border:1px solid rgba(38,166,154,0.7)"></div>Big Profit</div>
+      </div>
+    </div>
+  <div class="section-label">Daily Win/Loss Streak</div><div class="streak-bar"><div class="streak-dot loss" title="2026-06-02: -1,078"></div><div class="streak-dot loss" title="2026-06-03: -3,144"></div><div class="streak-dot loss" title="2026-06-04: -4,182"></div><div class="streak-dot win" title="2026-06-05: +456"></div><div class="streak-dot win" title="2026-06-08: +1,910"></div><div class="streak-dot win" title="2026-06-09: +642"></div><div class="streak-dot loss" title="2026-06-10: -802"></div><div class="streak-dot loss" title="2026-06-11: -83"></div><div class="streak-dot win" title="2026-06-12: +9,833"></div><div class="streak-dot loss" title="2026-06-15: -2,892"></div><div class="streak-dot win" title="2026-06-16: +673"></div><div class="streak-dot loss" title="2026-06-18: -4,216"></div><div class="streak-dot loss" title="2026-06-22: -2,334"></div><div class="streak-dot win" title="2026-06-23: +3,784"></div><div class="streak-dot win" title="2026-06-24: +1,219"></div><div class="streak-dot win" title="2026-06-25: +13,058"></div><div class="streak-dot win" title="2026-06-30: +25,298"></div><div class="streak-dot win" title="2026-07-01: +2,695"></div><div class="streak-dot win" title="2026-07-02: +12,694"></div><div class="streak-dot loss" title="2026-07-03: -8,464"></div></div>
+  
+    <div class="section-label">Performance Overview</div>
+    <div class="donut-container">
+      <div class="donut-chart">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r="55" fill="none" stroke="var(--border)" stroke-width="14"/>
+      <circle cx="70" cy="70" r="55" fill="none" stroke="var(--green)" stroke-width="14"
+        stroke-dasharray="150.9 345.6"
+        stroke-dashoffset="0" transform="rotate(-90 70 70)"/>
+      <circle cx="70" cy="70" r="55" fill="none" stroke="var(--red)" stroke-width="14"
+        stroke-dasharray="194.7 345.6"
+        stroke-dashoffset="-150.9" transform="rotate(-90 70 70)"/>
+    </svg>
+        <div class="donut-center">
+          <div class="donut-center-val pnl-pos">31</div>
+          <div class="donut-center-label">Wins / 71</div>
+        </div>
+      </div>
+      <div class="donut-legend">
+        <div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:var(--green)"></div>
+          <span>Wins: 31 (44%)</span>
+        </div>
+        <div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:var(--red)"></div>
+          <span>Losses: 40 (56%)</span>
+        </div>
+        <div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#2962ff"></div>
+          <span>TREND_RIDE_0 (48%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#ff8c00"></div>
+          <span>PULLBACK_3 (19%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#00bcd4"></div>
+          <span>SUPERTREND (9%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#9c27b0"></div>
+          <span>PULLBACK_1 (8%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#4caf50"></div>
+          <span>TREND_RIDE (6%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#ff5722"></div>
+          <span>PULLBACK (6%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#607d8b"></div>
+          <span>PULLBACK_2 (1%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#2962ff"></div>
+          <span>STOCH_CROSS_0 (1%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#ff8c00"></div>
+          <span>ADX_BREAKOUT_0 (1%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#00bcd4"></div>
+          <span>EMA_MOMENTUM (0%)</span>
+        </div><div class="donut-legend-item">
+          <div class="donut-legend-color" style="background:#9c27b0"></div>
+          <span>PULLBACK_4 (0%)</span>
+        </div>
+      </div>
     </div>
   
     <div class="section-label">Strategy Breakdown</div>
@@ -2606,7 +2778,7 @@ h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
     </details>
 
   <div class="footer">
-    DeltaForge &middot; Auto-generated from trades.db &middot; 2026-07-03 23:55 IST
+    DeltaForge &middot; Auto-generated from trades.db &middot; 2026-07-04 00:02 IST
   </div>
 </div>
 </body>
