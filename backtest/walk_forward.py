@@ -12,11 +12,10 @@ Usage:
 """
 
 from __future__ import annotations
-import sys
+
 import itertools
-from datetime import datetime
+import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -26,8 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import settings
-from engine.indicators import ema, rsi, atr, supertrend_fast
-
+from engine.indicators import ema, rsi
 
 # ── Core backtester on real 5-min data ──────────────────────────────
 
@@ -130,8 +128,8 @@ def backtest_on_real_data(
 
             c_now = close.iloc[i]
             c_prev = close.iloc[i - 1]
-            h_now = high.iloc[i]
-            l_now = low.iloc[i]
+            high.iloc[i]
+            low.iloc[i]
             v_now = vol.iloc[i]
             v_avg = vol_sma.iloc[i] if i < len(vol_sma) and not np.isnan(vol_sma.iloc[i]) else v_now
             ef = ema_f.iloc[i] if not np.isnan(ema_f.iloc[i]) else c_now
@@ -322,9 +320,8 @@ def optimize_parameters(train_df: pd.DataFrame,
     }
 
     # Run a reasonable subset: key combos only
-    best_result = None
     best_params = {}
-    best_score = -float("inf")
+    -float("inf")
     results = []
     total = 0
 
@@ -467,7 +464,7 @@ def walk_forward_test(df: pd.DataFrame,
     test_days = unique_days[split_idx:]
 
     print(f"\n{'='*65}")
-    print(f"  WALK-FORWARD VALIDATION")
+    print("  WALK-FORWARD VALIDATION")
     print(f"{'='*65}")
     print(f"  Total days  : {len(unique_days)}")
     print(f"  Train period: {train_days[0]} to {train_days[-1]} ({len(train_days)} days)")
@@ -482,24 +479,24 @@ def walk_forward_test(df: pd.DataFrame,
     test_df = df[test_mask].copy()
 
     # Phase 1: Optimize on train data
-    print(f"\n  PHASE 1: Optimizing on training data...")
+    print("\n  PHASE 1: Optimizing on training data...")
     opt = optimize_parameters(train_df, starting_capital)
     best_params = opt["best_params"]
     train_result = opt["train_result"]
 
-    print(f"\n  TRAIN RESULTS:")
+    print("\n  TRAIN RESULTS:")
     print_result(train_result, "  ")
 
     # Phase 2: Validate on test data (out-of-sample)
-    print(f"\n  PHASE 2: Validating on test data (OUT-OF-SAMPLE)...")
+    print("\n  PHASE 2: Validating on test data (OUT-OF-SAMPLE)...")
     test_result = backtest_on_real_data(test_df, starting_capital=starting_capital,
                                          **best_params)
 
-    print(f"\n  TEST RESULTS (OUT-OF-SAMPLE):")
+    print("\n  TEST RESULTS (OUT-OF-SAMPLE):")
     print_result(test_result, "  ")
 
     # Stability check
-    print(f"\n  STABILITY CHECK:")
+    print("\n  STABILITY CHECK:")
     train_pf = train_result["profit_factor"]
     test_pf = test_result["profit_factor"]
     train_wr = train_result["win_rate"]

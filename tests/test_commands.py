@@ -18,19 +18,21 @@ from __future__ import annotations
 import sqlite3
 import sys
 import tempfile
-import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import settings
 from alerts.command_listener import (
-    CommandRouter, CommandPoller, SessionManager, HELP_TEXT,
+    HELP_TEXT,
+    CommandPoller,
+    CommandRouter,
+    SessionManager,
 )
+from config import settings
 
 
 def _mock_engine():
@@ -89,7 +91,8 @@ class TestCommandRouter(unittest.TestCase):
 
     def test_status_no_engine_with_file(self):
         """Offline status reads capital from disk."""
-        import json, os
+        import json
+        import os
         tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w")
         json.dump({
             "current_capital": 11000,

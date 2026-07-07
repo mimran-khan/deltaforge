@@ -15,13 +15,12 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import sqlite3
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -30,7 +29,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import settings
-
 
 # ═══════════════════════════════════════════════════════════════════
 #  HELPERS
@@ -590,7 +588,7 @@ class TestKillSwitch(unittest.TestCase):
             self.halt_file.unlink()
 
     def test_set_and_check_halt(self):
-        from risk.kill_switch import set_halt, is_halted, clear_halt
+        from risk.kill_switch import clear_halt, is_halted, set_halt
         self.assertFalse(is_halted())
 
         set_halt("test reason")
@@ -671,8 +669,8 @@ class TestPositionManager(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_open_and_close_position(self):
-        from risk.capital_tracker import CapitalTracker
         from execution.position_manager import PositionManager
+        from risk.capital_tracker import CapitalTracker
 
         broker = MagicMock()
         broker.place_order.return_value = "ORD001"
@@ -705,8 +703,8 @@ class TestPositionManager(unittest.TestCase):
         self.assertFalse(pm.has_open_positions)
 
     def test_trailing_sl_activation(self):
-        from risk.capital_tracker import CapitalTracker
         from execution.position_manager import PositionManager
+        from risk.capital_tracker import CapitalTracker
 
         broker = MagicMock()
         broker.place_order.return_value = "ORD002"
@@ -836,7 +834,7 @@ class TestTradingEngineE2E(unittest.TestCase):
 
         # Simulate feeding candles from real-like data
         df = make_trending_candles(75)
-        for i, (ts, row) in enumerate(df.iterrows()):
+        for _i, (ts, row) in enumerate(df.iterrows()):
             engine.candle_builder.on_tick(
                 price=row['close'], volume=int(row['volume']),
                 timestamp=ts.to_pydatetime()
@@ -860,9 +858,9 @@ class TestTradingEngineE2E(unittest.TestCase):
     @patch("engine.trading_engine.send_eod_report")
     def test_paper_position_lifecycle(self, mock_eod, mock_trade, mock_sys):
         """Test opening a paper position, holding, and squaring off."""
-        from engine.trading_engine import TradingEngine, PaperPosition
         from engine.multi_strategy_engine import TradeSignal
         from engine.premium_model import create_premium_state
+        from engine.trading_engine import PaperPosition, TradingEngine
 
         engine = TradingEngine()
         engine.broker = MagicMock()
@@ -895,8 +893,9 @@ class TestTradingEngineE2E(unittest.TestCase):
     @patch("engine.trading_engine.send_eod_report")
     def test_stale_price_guard(self, mock_eod, mock_trade, mock_sys):
         """Verify stale prices block signal generation."""
-        from engine.trading_engine import TradingEngine
         import pytz
+
+        from engine.trading_engine import TradingEngine
 
         engine = TradingEngine()
         engine.broker = MagicMock()

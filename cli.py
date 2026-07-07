@@ -22,17 +22,16 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 import click
 import pytz
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -60,8 +59,8 @@ def cli():
 @click.option("-q", "--quiet", is_flag=True, help="Warning-level console logs only")
 def trade(live, paper, no_commands, verbose, quiet):
     """Start the daily trading session."""
-    from config.logging import setup_logging
     from config import settings
+    from config.logging import setup_logging
 
     if live:
         settings.TRADING_MODE = "live"
@@ -295,14 +294,15 @@ def db_stats(strategy, min_trades):
 @cli.command()
 def selftest():
     """Run the pre-flight self-test (signal generation check)."""
-    from config.logging import setup_logging
     from config import settings
+    from config.logging import setup_logging
     setup_logging()
 
     console.print("[cyan]Running pre-flight self-test...[/cyan]")
 
-    from engine.multi_strategy_engine import MultiStrategyEngine
     import pandas as pd
+
+    from engine.multi_strategy_engine import MultiStrategyEngine
 
     selftest_path = Path(settings.DATA_DIR) / "selftest_candles.csv"
     if not selftest_path.exists():

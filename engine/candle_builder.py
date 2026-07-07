@@ -1,11 +1,11 @@
 """Builds OHLCV candles from tick data or historical API data."""
 
 from __future__ import annotations
-from datetime import datetime, timedelta
+
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from loguru import logger
 

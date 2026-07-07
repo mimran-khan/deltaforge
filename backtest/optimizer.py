@@ -6,22 +6,18 @@ Usage:
 
 from __future__ import annotations
 
-import sys
-import json
 import argparse
-import itertools
-from copy import deepcopy
-from datetime import datetime
+import json
+import sys
 from pathlib import Path
 
-import numpy as np
 from loguru import logger
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import settings
 from backtest.run_backtest import load_real_data, run_compound_backtest
+from config import settings
 from engine.multi_strategy_engine import MultiStrategyEngine
 from engine.premium_model import STRATEGY_SL_PCT, STRATEGY_TARGET_MULT
 
@@ -315,7 +311,7 @@ def main():
             })
         with open(settings.DATA_DIR / "optimizer_results.json", "w") as f:
             json.dump(summary, f, indent=2)
-        print(f"\n  Saved: data/optimizer_results.json")
+        print("\n  Saved: data/optimizer_results.json")
 
     return all_results
 

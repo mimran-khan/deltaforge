@@ -88,8 +88,15 @@ line-length = 120
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = [
     "E501",
+    "E741",
     "B028",
     "SIM108",
+    "UP045",
+    "E402",
+    "SIM105",
+    "SIM102",
+    "SIM115",
+    "B023",
 ]
 
 [tool.ruff.lint.isort]

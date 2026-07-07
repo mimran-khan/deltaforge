@@ -19,7 +19,6 @@ import shutil
 import sys
 import tempfile
 import threading
-import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -841,8 +840,8 @@ class TestPositionManagerDeep(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def _make(self):
-        from risk.capital_tracker import CapitalTracker
         from execution.position_manager import PositionManager
+        from risk.capital_tracker import CapitalTracker
         broker = MagicMock()
         broker.place_order.return_value = "ORD001"
         broker.get_ltp.return_value = 100.0
@@ -938,7 +937,7 @@ class TestKillSwitchDeep(unittest.TestCase):
         self.assertIn("test reason here", content)
 
     def test_halt_survives_process_restart(self):
-        from risk.kill_switch import set_halt, is_halted
+        from risk.kill_switch import is_halted, set_halt
         set_halt("persist test")
         # Simulate "restart" by reimporting
         self.assertTrue(is_halted())
@@ -1125,8 +1124,8 @@ class TestTradingEngineDeep(unittest.TestCase):
 
     def test_lot_sizing_uses_decision_lots(self):
         """Paper entry must use decision.lots, not _compute_lots()."""
-        from engine.trading_engine import TradingEngine
         from engine.multi_strategy_engine import TradeSignal
+        from engine.trading_engine import TradingEngine
         from risk.risk_engine import RiskDecision
 
         engine = TradingEngine()
@@ -1142,9 +1141,8 @@ class TestTradingEngineDeep(unittest.TestCase):
         )
         decision = RiskDecision(approved=True, reason="ok", lots=3, premium_sl_pct=30)
 
-        with patch.object(engine, "_save_paper_positions"):
-            with patch("engine.trading_engine.send_trade_alert"):
-                engine._paper_enter(signal, decision, "CE")
+        with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+            engine._paper_enter(signal, decision, "CE")
 
         self.assertEqual(len(engine._paper_positions), 1)
         self.assertEqual(engine._paper_positions[0].lots, 3)
@@ -1152,9 +1150,9 @@ class TestTradingEngineDeep(unittest.TestCase):
 
     def test_bar_close_sl_records_trade(self):
         """_update_paper_positions should persist SL exits on bar close."""
-        from engine.trading_engine import TradingEngine, PaperPosition
         from engine.multi_strategy_engine import TradeSignal
         from engine.premium_model import create_premium_state
+        from engine.trading_engine import PaperPosition, TradingEngine
 
         engine = TradingEngine()
         engine._nifty_spot = 24000.0
@@ -1194,19 +1192,18 @@ class TestTradingEngineDeep(unittest.TestCase):
         )
         engine._paper_positions = [pos]
 
-        with patch.object(engine, "_save_paper_positions"):
-            with patch("engine.trading_engine.send_trade_alert"):
-                engine._nifty_spot = 23900
-                engine._update_paper_positions()
+        with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+            engine._nifty_spot = 23900
+            engine._update_paper_positions()
 
         engine.perf_db.record_trade.assert_called_once()
         self.assertEqual(len(engine._paper_positions), 0)
 
     def test_emergency_sl_only_on_extreme_move(self):
         """_check_emergency_sl fires only when Nifty moves > 2x ATR."""
-        from engine.trading_engine import TradingEngine, PaperPosition
         from engine.multi_strategy_engine import TradeSignal
         from engine.premium_model import create_premium_state
+        from engine.trading_engine import PaperPosition, TradingEngine
 
         engine = TradingEngine()
         engine._nifty_spot = 24000.0
@@ -1246,16 +1243,14 @@ class TestTradingEngineDeep(unittest.TestCase):
         )
 
         engine._paper_positions = [pos]
-        with patch.object(engine, "_save_paper_positions"):
-            with patch("engine.trading_engine.send_trade_alert"):
-                engine._nifty_spot = 23960  # 40pts < 56 (2x28) -- no emergency
-                engine._check_emergency_sl()
+        with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+            engine._nifty_spot = 23960  # 40pts < 56 (2x28) -- no emergency
+            engine._check_emergency_sl()
         self.assertEqual(len(engine._paper_positions), 1)
 
-        with patch.object(engine, "_save_paper_positions"):
-            with patch("engine.trading_engine.send_trade_alert"):
-                engine._nifty_spot = 23940  # 60pts > 56 (2x28) -- emergency
-                engine._check_emergency_sl()
+        with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+            engine._nifty_spot = 23940  # 60pts > 56 (2x28) -- emergency
+            engine._check_emergency_sl()
         self.assertEqual(len(engine._paper_positions), 0)
 
 

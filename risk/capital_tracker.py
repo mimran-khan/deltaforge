@@ -5,13 +5,13 @@ Implements drawdown tiers for progressive risk reduction.
 """
 
 from __future__ import annotations
+
 import fcntl
 import json
 import os
 import shutil
 import sqlite3
 from datetime import datetime
-from typing import Optional
 
 import pytz
 from loguru import logger

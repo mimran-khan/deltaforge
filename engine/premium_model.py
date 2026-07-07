@@ -9,6 +9,7 @@ broker LTP data, but the underlying logic is identical.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -116,10 +117,10 @@ STRATEGY_TARGET_MULT = {
 }
 
 STRATEGY_SL_PCT = {
-    "SUPERTREND":    3.0,
-    "STOCH_CROSS":   3.0,
-    "PULLBACK":      3.0,
-    "TREND_RIDE":    3.0,
+    "SUPERTREND":    8.0,
+    "STOCH_CROSS":   8.0,
+    "PULLBACK":      8.0,
+    "TREND_RIDE":    8.0,
     "RSI_REVERSION": 10.0,
     "VWAP_MOMENTUM": 10.0,
     "EMA_MOMENTUM":  10.0,

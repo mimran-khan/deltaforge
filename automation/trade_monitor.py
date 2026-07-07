@@ -14,6 +14,7 @@ Usage:
 """
 
 from __future__ import annotations
+
 import json
 import sys
 import time
@@ -118,7 +119,7 @@ class TradeMonitor:
         losses = cap.get("losses_today", 0)
         trades = wins + losses
         consec_losses = cap.get("consecutive_losses", 0)
-        day_start = cap.get("day_start_capital", 10000)
+        cap.get("day_start_capital", 10000)
 
         # Track peak
         if capital > self._peak_capital:
@@ -128,7 +129,7 @@ class TradeMonitor:
         if trades > self._last_trades_count:
             self._last_trade_time = time.time()
             self._inactivity_alerted = False
-            new_trades = trades - self._last_trades_count
+            trades - self._last_trades_count
             self._last_trades_count = trades
 
             wr = (wins / trades * 100) if trades > 0 else 0
@@ -215,7 +216,6 @@ class TradeMonitor:
         wr = (wins / trades * 100) if trades > 0 else 0
 
         verdict = "PROFIT" if daily_pnl > 0 else "LOSS" if daily_pnl < 0 else "FLAT"
-        icon = "GREEN" if daily_pnl > 0 else "RED" if daily_pnl < 0 else "GREY"
 
         send_system_alert(
             f"EOD Summary -- {verdict}",

@@ -1,10 +1,10 @@
 """Select the optimal option strike for Nifty/BankNifty trading."""
 
 from __future__ import annotations
+
 import json
-import math
-from datetime import datetime, date, timedelta
-from typing import Optional, Tuple
+from datetime import date, datetime
+from typing import Optional
 
 import pytz
 from loguru import logger

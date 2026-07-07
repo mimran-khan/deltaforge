@@ -1,6 +1,7 @@
 """Download real Nifty/BankNifty historical data from Yahoo Finance."""
 
 from __future__ import annotations
+
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path

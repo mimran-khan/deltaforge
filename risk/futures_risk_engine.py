@@ -7,7 +7,6 @@ Applies per-instrument risk rules without touching the Nifty risk flow.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 import pytz
 from loguru import logger

@@ -11,10 +11,9 @@ Usage:
 from __future__ import annotations
 
 import json
-import math
-import time
 import sys
-from datetime import datetime, timedelta, date
+import time
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -25,9 +24,8 @@ from loguru import logger
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from config import settings
-from engine.broker import BrokerConnection
 from backtest.run_backtest import load_real_data
+from engine.broker import BrokerConnection
 
 IST = pytz.timezone("Asia/Kolkata")
 OPTION_DATA_DIR = BASE_DIR / "data" / "option_candles"
@@ -147,7 +145,6 @@ def run_fetch(days: int = 30):
     ]
     logger.info("Found {} NIFTY options in instrument master", len(nifty_options))
 
-    all_option_data = []
     fetched = 0
     skipped = 0
 

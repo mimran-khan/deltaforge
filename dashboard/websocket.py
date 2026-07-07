@@ -6,13 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 from pathlib import Path
 from typing import Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
+from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileDeletedEvent
 
 from config import settings
 from dashboard import data_access as da

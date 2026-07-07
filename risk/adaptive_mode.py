@@ -15,6 +15,7 @@ Hysteresis rules prevent flip-flopping:
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 
@@ -162,17 +163,11 @@ class AdaptiveModeController:
         # --- Evaluate from most restrictive to least ---
 
         # HALT conditions (absolute)
-        if consecutive_losses >= halt_consec:
-            self._mode = Mode.HALT
-        elif daily_pnl_pct <= halt_loss_pct:
+        if consecutive_losses >= halt_consec or daily_pnl_pct <= halt_loss_pct:
             self._mode = Mode.HALT
 
         # DEFENSIVE conditions
-        elif daily_pnl_pct <= def_loss_pct:
-            self._mode = Mode.DEFENSIVE
-        elif consecutive_losses >= def_consec:
-            self._mode = Mode.DEFENSIVE
-        elif trades >= def_wr_min_trades and wr < def_wr:
+        elif daily_pnl_pct <= def_loss_pct or consecutive_losses >= def_consec or trades >= def_wr_min_trades and wr < def_wr:
             self._mode = Mode.DEFENSIVE
 
         # AGGRESSIVE conditions (only promote from NORMAL, never skip)
@@ -187,11 +182,7 @@ class AdaptiveModeController:
             self._mode = Mode.DEFENSIVE
 
         # Recovery: DEFENSIVE -> NORMAL (after 1 win)
-        elif prev == Mode.DEFENSIVE and last_trade_won is True:
-            self._mode = Mode.NORMAL
-
-        # AGGRESSIVE -> NORMAL on loss
-        elif prev == Mode.AGGRESSIVE and last_trade_won is False:
+        elif prev == Mode.DEFENSIVE and last_trade_won is True or prev == Mode.AGGRESSIVE and last_trade_won is False:
             self._mode = Mode.NORMAL
 
         # No change -- stay in current mode

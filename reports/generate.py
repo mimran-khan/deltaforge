@@ -15,7 +15,7 @@ import json
 import os
 import sqlite3
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime
 from html import escape
 from pathlib import Path
 from typing import Optional
@@ -118,7 +118,7 @@ def match_events_to_trades(
     for trade in trades:
         tid = trade["id"]
         t_date = trade["date"]
-        t_time = trade.get("time", "")[:5]
+        trade.get("time", "")[:5]
         t_strategy = trade.get("strategy", "")
         t_direction = trade.get("direction", "")
 
@@ -290,8 +290,8 @@ def _recent_trades_html(trades: list[dict]) -> str:
 # ── HTML Generation ──────────────────────────────────────────
 
 def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
-    trade_events = match_events_to_trades(trades, events)
-    day_events = load_day_events(events)
+    match_events_to_trades(trades, events)
+    load_day_events(events)
     overall = compute_overall(trades, capital)
     starting_cap = capital.get("initial_capital") or capital.get("peak_capital") or 10000
     total_deployed = starting_cap + sum(
@@ -355,8 +355,7 @@ def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
             entry_p = t.get("entry_price", 0)
             exit_p = t.get("exit_price", 0)
             lots = t.get("lots", 1) or 1
-            hold = t.get("hold_bars", "")
-            hold_str = f"{hold}b" if hold else ""
+            t.get("hold_bars", "")
             pnl_cls = _pnl_class(tp)
             rows += f'<div class="trow"><span class="t-time">{time_str}</span><span class="t-strat">{strategy_name(strat)}</span><span class="t-dir {dir_cls}">{direction}</span><span class="t-price">{entry_p:.1f} &rarr; {exit_p:.1f}</span><span class="t-exit">{escape(exit_r)}</span><span class="t-lots">{lots}L</span><span class="t-pnl {pnl_cls}">{_pnl_sign(tp)}</span></div>'
 
@@ -438,9 +437,11 @@ def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
     streak_w = streak_l = cur_w = cur_l = 0
     for d in sorted(daily_pnl.keys()):
         if daily_pnl[d] > 0:
-            cur_w += 1; cur_l = 0
+            cur_w += 1
+            cur_l = 0
         else:
-            cur_l += 1; cur_w = 0
+            cur_l += 1
+            cur_w = 0
         streak_w = max(streak_w, cur_w)
         streak_l = max(streak_l, cur_l)
 
@@ -459,7 +460,6 @@ def generate_html(trades: list[dict], events: list[dict], capital: dict) -> str:
     # Drawdown data
     peak_eq = starting_cap
     dd_data = []
-    running_eq = starting_cap
     for d in sorted(daily_equity.keys()):
         v = daily_equity[d]
         if v > peak_eq:

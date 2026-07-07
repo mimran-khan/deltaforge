@@ -3,13 +3,19 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Query, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from config import settings
 from dashboard import data_access as da
 from dashboard.models import (
-    StatusResponse, CapitalResponse, TradeRecord, TradeSummary,
-    StrategyStats, RiskGate, BrokerInfo, InstrumentStatus,
+    BrokerInfo,
+    CapitalResponse,
+    InstrumentStatus,
+    RiskGate,
+    StatusResponse,
+    StrategyStats,
+    TradeRecord,
+    TradeSummary,
 )
 
 router = APIRouter(prefix="/api")

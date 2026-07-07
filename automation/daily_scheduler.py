@@ -1,15 +1,17 @@
 """Daily autonomous scheduler -- runs the full trading day lifecycle."""
 
 from __future__ import annotations
+
 import atexit
 import json
+import os
 import random
 import signal as _signal
+import subprocess
 import sys
 import threading
 import time
-import subprocess
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 
 import pytz
@@ -19,13 +21,15 @@ from loguru import logger
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from alerts.command_listener import CommandPoller
 from config import settings
 from engine.broker import BrokerConnection
 from engine.trading_engine import TradingEngine
-from alerts.command_listener import CommandPoller
 from risk.kill_switch import (
+    acquire_session_lock,
+    is_session_running,
+    release_session_lock,
     set_halt,
-    acquire_session_lock, release_session_lock, is_session_running,
 )
 
 _alert_method = getattr(settings, 'ALERT_METHOD', 'slack')
@@ -77,9 +81,7 @@ def is_mcx_evening_day() -> bool:
     if today.weekday() >= 5:
         return False
     today_str = today.strftime("%Y-%m-%d")
-    if today_str in _NSE_HOLIDAYS:
-        return True
-    return False
+    return today_str in _NSE_HOLIDAYS
 
 
 class DailyScheduler:
@@ -392,13 +394,34 @@ class DailyScheduler:
         self._generate_static_report()
 
     def _generate_static_report(self):
-        """Regenerate the static HTML trade report in docs/index.html."""
+        """Regenerate the static HTML trade report and push to GitHub Pages."""
         try:
             from reports.generate import generate
             path = generate()
             logger.info("Static report updated: {}", path)
         except Exception as e:
             logger.warning("Static report generation failed (non-fatal): {}", e)
+            return
+
+        try:
+            import subprocess
+            dev_repo = os.environ.get("DELTAFORGE_DEV_REPO", str(Path.home() / "Documents" / "TradingAgent"))
+            if not Path(dev_repo, ".git").exists():
+                return
+            cmds = [
+                ["git", "add", "docs/index.html"],
+                ["git", "commit", "-m", f"chore: update dashboard {datetime.now(IST).strftime('%Y-%m-%d')}", "--no-verify"],
+                ["git", "push", "origin", "main"],
+            ]
+            for cmd in cmds:
+                result = subprocess.run(cmd, cwd=dev_repo, capture_output=True, text=True, timeout=30)
+                if result.returncode != 0 and "nothing to commit" not in result.stdout:
+                    logger.warning("Dashboard push step failed: {} | {}", " ".join(cmd), result.stderr.strip())
+                    break
+            else:
+                logger.info("Dashboard pushed to GitHub Pages")
+        except Exception as e:
+            logger.warning("Dashboard git push failed (non-fatal): {}", e)
 
     def _archive_candles(self):
         """Append today's candles to nifty_5m_combined.csv for future backtesting."""

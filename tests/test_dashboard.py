@@ -7,16 +7,13 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import textwrap
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from config import settings
-
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -558,14 +555,15 @@ class TestStatic:
 class TestWebSocket:
     def test_ws_connects(self, patched_app):
         client, _ = patched_app
-        with client.websocket_connect("/ws/live") as ws:
+        with client.websocket_connect("/ws/live"):
             pass
 
     def test_ws_receives_capital_update(self, patched_app):
         client, data_dir = patched_app
         with client.websocket_connect("/ws/live") as ws:
-            from dashboard.websocket import manager
             import asyncio
+
+            from dashboard.websocket import manager
 
             async def _broadcast():
                 await manager.broadcast({

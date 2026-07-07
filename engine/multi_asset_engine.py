@@ -21,7 +21,6 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 
 import pytz
@@ -32,15 +31,15 @@ from config.instruments import Instrument, get_futures_instruments
 
 _alert_method = getattr(settings, 'ALERT_METHOD', 'slack')
 if _alert_method == 'imessage':
-    from alerts.imessage_bot import send_trade_alert, send_alert
+    from alerts.imessage_bot import send_alert, send_trade_alert
 elif _alert_method == 'slack':
-    from alerts.slack_bot import send_trade_alert, send_alert
+    from alerts.slack_bot import send_alert, send_trade_alert
 else:
-    from alerts.telegram_bot import send_trade_alert, send_alert
+    from alerts.telegram_bot import send_alert, send_trade_alert
 from engine.broker import BrokerConnection
 from engine.candle_builder import CandleBuilder
-from engine.multi_strategy_engine import MultiStrategyEngine, TradeSignal
 from engine.futures_model import FuturesPosition, create_futures_position
+from engine.multi_strategy_engine import MultiStrategyEngine, TradeSignal
 from persistence.performance_db import PerformanceDB
 from risk.futures_capital_tracker import FuturesCapitalTracker
 from risk.futures_risk_engine import FuturesRiskEngine
@@ -375,7 +374,7 @@ class MultiAssetEngine:
                     break
 
                 any_active = False
-                for name, state in self._instruments.items():
+                for _name, state in self._instruments.items():
                     if not state.is_within_trading_hours(now):
                         if state.positions and state.should_square_off(now):
                             self._square_off_instrument(state, "EOD")
@@ -788,7 +787,7 @@ class MultiAssetEngine:
             logger.debug("MultiAsset state export error: {}", e)
 
     def end_day(self):
-        for name, state in self._instruments.items():
+        for _name, state in self._instruments.items():
             if state.positions:
                 self._square_off_instrument(state, "END_OF_DAY")
 
@@ -799,7 +798,7 @@ class MultiAssetEngine:
         logger.info("MultiAsset DAY END | Total PnL: Rs {:.0f} | Trades: {}",
                      total_pnl, total_trades)
         lines = []
-        for name, state in self._instruments.items():
+        for _name, state in self._instruments.items():
             if state.trades_today > 0 or state.daily_pnl != 0:
                 logger.info("  {} | PnL: Rs {:.0f} | Trades: {}",
                              state.instrument.display_name,

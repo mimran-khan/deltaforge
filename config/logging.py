@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import sys
 from datetime import date, datetime
-from pathlib import Path
 
 import pytz
 from loguru import logger
@@ -47,7 +46,6 @@ def _json_serializer(message):
 
 
 def _json_sink(message):
-    record = message.record
     json_dir = settings.LOG_DIR / "json"
     json_dir.mkdir(exist_ok=True)
     path = json_dir / f"trading_{_today_ist().isoformat()}.jsonl"

@@ -5,13 +5,14 @@ Usage:
 """
 
 from __future__ import annotations
-import sys
+
 import argparse
-from datetime import datetime, timedelta, date
+import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from loguru import logger
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -719,7 +720,7 @@ def _load_futures_data(instrument_name: str, days: int) -> pd.DataFrame:
 
     print(f"  No data file found for {instrument_name}.")
     print(f"  Expected: {data_file} or {combined_file}")
-    print(f"  Download MCX/CDS historical data and save as 5m OHLCV CSV.")
+    print("  Download MCX/CDS historical data and save as 5m OHLCV CSV.")
     return pd.DataFrame()
 
 
@@ -782,7 +783,7 @@ def main():
     df_test = df[df.index.map(lambda t: t.date() in test_days)]
 
     print(f"\n{'=' * 65}")
-    print(f"  WALK-FORWARD VALIDATION")
+    print("  WALK-FORWARD VALIDATION")
     print(f"  Train: {len(train_days)} days ({min(train_days)} → {max(train_days)})")
     print(f"  Test:  {len(test_days)} days ({min(test_days)} → {max(test_days)})")
     print(f"  Lot size: {lot_size} | Cost model: spread + STT + exchange + impact")
@@ -816,7 +817,7 @@ def main():
         settings.DATA_DIR / "backtest_trades.csv", index=False)
     pd.DataFrame(results["equity_curve"]).to_csv(
         settings.DATA_DIR / "equity_curve.csv", index=False)
-    print(f"  Saved: data/backtest_trades.csv, data/equity_curve.csv")
+    print("  Saved: data/backtest_trades.csv, data/equity_curve.csv")
 
     return results
 

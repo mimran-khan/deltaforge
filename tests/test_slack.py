@@ -8,10 +8,11 @@ Usage:
     python -m tests.test_slack --live   # sends a real Slack message
 """
 from __future__ import annotations
+
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -190,7 +191,9 @@ def run_live_test():
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / ".env")
 
-    import importlib, config.settings
+    import importlib
+
+    import config.settings
     importlib.reload(config.settings)
 
     from alerts.slack_bot import send_system_alert

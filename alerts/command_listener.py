@@ -34,9 +34,14 @@ from loguru import logger
 
 from config import settings
 from risk.kill_switch import (
-    is_halted, set_halt, clear_halt, is_session_running,
-    is_poller_running, acquire_poller_lock, release_poller_lock,
+    acquire_poller_lock,
+    clear_halt,
     force_release_session_lock,
+    is_halted,
+    is_poller_running,
+    is_session_running,
+    release_poller_lock,
+    set_halt,
 )
 
 _alert_method = getattr(settings, "ALERT_METHOD", "slack")

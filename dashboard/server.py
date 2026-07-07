@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from dashboard.routes import router
-from dashboard.websocket import ws_endpoint, start_watcher, stop_watcher
+from dashboard.websocket import start_watcher, stop_watcher, ws_endpoint
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "docs"
 

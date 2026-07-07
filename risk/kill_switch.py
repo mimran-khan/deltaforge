@@ -1,11 +1,12 @@
 """Independent watchdog process -- monitors P&L and kills trading if limits breached."""
 
 from __future__ import annotations
+
 import json
 import os
-import time
 import signal as sig
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 

@@ -42,29 +42,26 @@ from engine.candle_builder import CandleBuilder
 from engine.market_feed import MarketFeed
 from engine.multi_strategy_engine import MultiStrategyEngine, TradeSignal
 from engine.premium_model import (
-    create_premium_state, PremiumState, STRATEGY_SL_PCT,
-    STRATEGY_HOLD_BARS, STRATEGY_TRAIL,
+    STRATEGY_HOLD_BARS,
+    STRATEGY_SL_PCT,
+    STRATEGY_TRAIL,
+    PremiumState,
+    create_premium_state,
 )
 from execution.position_manager import PositionManager
 from persistence.performance_db import PerformanceDB
-from risk.risk_engine import RiskEngine, RiskDecision
+from risk.adaptive_mode import AdaptiveModeController
 from risk.capital_tracker import CapitalTracker
 from risk.kill_switch import is_halted
-from risk.adaptive_mode import AdaptiveModeController
+from risk.risk_engine import RiskDecision, RiskEngine
 
 _alert_method = getattr(settings, 'ALERT_METHOD', 'slack')
 if _alert_method == 'imessage':
-    from alerts.imessage_bot import (
-        send_trade_alert, send_eod_report, send_system_alert
-    )
+    from alerts.imessage_bot import send_eod_report, send_system_alert, send_trade_alert
 elif _alert_method == 'slack':
-    from alerts.slack_bot import (
-        send_trade_alert, send_eod_report, send_system_alert
-    )
+    from alerts.slack_bot import send_eod_report, send_system_alert, send_trade_alert
 else:
-    from alerts.telegram_bot import (
-        send_trade_alert, send_eod_report, send_system_alert
-    )
+    from alerts.telegram_bot import send_eod_report, send_system_alert, send_trade_alert
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -696,7 +693,7 @@ class TradingEngine:
             exit_reason = None
             exit_prem_raw = cur_prem
 
-            if cur_prem <= pos.sl_premium:
+            if cur_prem <= pos.sl_premium and pos.candles_held >= 2:
                 exit_reason = "STEP_TRAIL" if pos.sl_premium >= pos.entry_premium else "SL"
                 exit_prem_raw = pos.sl_premium
             elif cur_prem >= pos.prem_state.target_premium:
@@ -907,7 +904,6 @@ class TradingEngine:
         )
 
         try:
-            from engine.strike_selector import StrikeSelector
             strike = self.strike_selector.find_strike(
                 spot_price=self._nifty_spot,
                 underlying="NIFTY",
@@ -970,7 +966,6 @@ class TradingEngine:
         price = None
         volume = 0
         token = self._nifty_token_info.get("token", settings.NIFTY_INDEX_TOKEN)
-        source = ""
 
         # Try WebSocket first (real-time with volume)
         if self.market_feed and self.market_feed.is_connected:
@@ -978,14 +973,13 @@ class TradingEngine:
             if tick:
                 price = tick["price"]
                 volume = tick.get("volume", 0)
-                source = "WS"
 
         # Fall back to REST (no volume)
         if price is None:
             symbol = self._nifty_token_info.get("symbol", "Nifty 50")
             price = self.broker.get_ltp("NSE", symbol, token)
             if price:
-                source = "REST"
+                pass
 
         if price:
             self._nifty_spot = price

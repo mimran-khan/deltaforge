@@ -14,10 +14,11 @@ Categories added:
 """
 
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
-from engine import indicators as ind
 
+from engine import indicators as ind
 
 # ═══════════════════════════════════════════════════════════════════
 #  8. CANDLESTICK PATTERNS
@@ -98,7 +99,7 @@ def detect_patterns(o: pd.Series, h: pd.Series, l: pd.Series,
     patterns["MARUBOZU"] = marubozu_bull.astype(int) - marubozu_bear.astype(int)
 
     # 14. Spinning Top (small body, long wicks both sides)
-    spinning = (body_ratio < 0.3) & (upper_wick > body_abs) & (lower_wick > body_abs)
+    (body_ratio < 0.3) & (upper_wick > body_abs) & (lower_wick > body_abs)
     patterns["SPINNING_TOP"] = pd.Series(0, index=o.index)  # neutral
 
     # 15. Tweezer Top

@@ -9,6 +9,7 @@ If Telegram fails, risk still halts. If broker fails, risk still halts.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -19,7 +20,8 @@ from loguru import logger
 from config import settings
 from engine.premium_model import STRATEGY_SL_PCT
 from risk.capital_tracker import CapitalTracker
-from risk.kill_switch import set_halt as _set_halt_flag, clear_halt as _clear_halt_flag
+from risk.kill_switch import clear_halt as _clear_halt_flag
+from risk.kill_switch import set_halt as _set_halt_flag
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -54,8 +56,8 @@ class RiskEngine:
 
         vix_value = None
         try:
-            import urllib.request
             import json as _json
+            import urllib.request
             req = urllib.request.Request(
                 "https://www.nseindia.com/api/allIndices",
                 headers={"User-Agent": "Mozilla/5.0"},

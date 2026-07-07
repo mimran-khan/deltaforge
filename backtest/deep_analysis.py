@@ -9,21 +9,20 @@ from __future__ import annotations
 import copy
 import sys
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import settings
 from backtest.comparison_study import load_study_data
 from backtest.run_backtest import run_compound_backtest
-from engine.multi_strategy_engine import MultiStrategyEngine
+from config import settings
 from engine import premium_model
+from engine.multi_strategy_engine import MultiStrategyEngine
 
 STUDY_DAYS = 100
 STARTING_CAPITAL = 10_000
@@ -284,7 +283,7 @@ def main() -> None:
     print("=" * 80)
     print("  DELTAFORGE DEEP ANALYSIS — 100-DAY BACKTEST")
     print("=" * 80)
-    print(f"\nBaseline config:")
+    print("\nBaseline config:")
     print(f"  SL={BASELINE['sl_pct']}%  Trail={BASELINE['trail_trigger']}/{BASELINE['trail_pct']}%  "
           f"MaxSim={BASELINE['max_sim']}  MaxTotal={BASELINE['max_total']}")
     print(f"  Capital=Rs {STARTING_CAPITAL:,}  Lot={LOT_SIZE}  Deploy={DEPLOY_PCT}%\n")
@@ -479,7 +478,7 @@ def main() -> None:
         )
 
     # ── Recommended config final run ──────────────────────────────────────────
-    print(f"\n\nRunning recommended config validation...")
+    print("\n\nRunning recommended config validation...")
     recommended_result, recommended_sr = run_config(
         df,
         sl_pct=best_sl,
@@ -559,7 +558,7 @@ def main() -> None:
     print(f"  e) Optimal Max Trades/Day: {best_max_total} "
           f"(baseline was {BASELINE['max_total']})")
 
-    print(f"\n  Baseline vs Recommended:")
+    print("\n  Baseline vs Recommended:")
     print(f"    Baseline  : PF={baseline_sr.profit_factor} WR={baseline_sr.win_rate}% "
           f"Final=Rs {baseline_sr.final_capital:,.0f} MaxDD={baseline_sr.max_drawdown_pct}%")
     print(f"    Recommended: PF={recommended_sr.profit_factor} WR={recommended_sr.win_rate}% "

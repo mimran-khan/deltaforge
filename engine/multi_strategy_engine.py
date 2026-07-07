@@ -43,6 +43,7 @@ class TradeSignal:
     reason: str
     pullback_count: int = 0
     vol_ratio: float = 1.0  # ATR-based volatility scalar for adaptive SL
+    adx: float = 0.0
 
     def summary(self) -> str:
         return (f"{self.signal_type} {self.direction} "
@@ -109,13 +110,7 @@ class RegimeDetector:
             elif signal.direction == "LONG":
                 signal.confidence = max(signal.confidence - self.PENALTY, 0)
 
-        elif self.regime == "GAP_FADE_LONG":
-            if signal.direction == "LONG":
-                signal.confidence = min(signal.confidence + self.BOOST, 100)
-            elif signal.direction == "SHORT":
-                signal.confidence = max(signal.confidence - self.PENALTY, 0)
-
-        elif self.regime == "TREND_LONG":
+        elif self.regime == "GAP_FADE_LONG" or self.regime == "TREND_LONG":
             if signal.direction == "LONG":
                 signal.confidence = min(signal.confidence + self.BOOST, 100)
             elif signal.direction == "SHORT":
@@ -545,9 +540,7 @@ class MultiStrategyEngine:
                 return True
             if sig.direction == "LONG" and close_val < vwap_val:
                 return False
-            if sig.direction == "SHORT" and close_val > vwap_val:
-                return False
-            return True
+            return not (sig.direction == "SHORT" and close_val > vwap_val)
 
         def _vwap_boost(sig):
             """VWAP soft boost: +5 confidence when direction agrees with VWAP position."""
@@ -740,14 +733,10 @@ class MultiStrategyEngine:
         htf_strength = abs(rsi_15m - 50)
         conf += min(htf_strength * 0.3, 8)
 
-        if direction == "LONG" and close > ema_20:
-            conf += 3
-        elif direction == "SHORT" and close < ema_20:
+        if direction == "LONG" and close > ema_20 or direction == "SHORT" and close < ema_20:
             conf += 3
 
-        if direction == "LONG" and st_dir == 1:
-            conf += 3
-        elif direction == "SHORT" and st_dir == -1:
+        if direction == "LONG" and st_dir == 1 or direction == "SHORT" and st_dir == -1:
             conf += 3
 
         conf = min(conf, 100)
@@ -885,12 +874,12 @@ class MultiStrategyEngine:
         if (cross_dir == "LONG" and st_dir == 1 and rsi_15m > 55
                 and 40 < rsi_5m < 70):
             direction = "LONG"
-            reasons = [f"EMA9x21↑", f"ADX={adx_val:.0f}", f"RSI15={rsi_15m:.0f}↑",
+            reasons = ["EMA9x21↑", f"ADX={adx_val:.0f}", f"RSI15={rsi_15m:.0f}↑",
                        f"Vol={vol_ratio:.1f}x"]
         elif (cross_dir == "SHORT" and st_dir == -1 and rsi_15m < 45
               and 30 < rsi_5m < 60):
             direction = "SHORT"
-            reasons = [f"EMA9x21↓", f"ADX={adx_val:.0f}", f"RSI15={rsi_15m:.0f}↓",
+            reasons = ["EMA9x21↓", f"ADX={adx_val:.0f}", f"RSI15={rsi_15m:.0f}↓",
                        f"Vol={vol_ratio:.1f}x"]
 
         if not direction:
@@ -967,12 +956,12 @@ class MultiStrategyEngine:
         if (bars_above >= 3 and ema_9 > ema_21 > ema_50
                 and rsi_5m > 55 and st_dir == 1):
             direction = "LONG"
-            reasons = [f"VWAP+3bars↑", f"EMA cascade↑", f"RSI={rsi_5m:.0f}",
+            reasons = ["VWAP+3bars↑", "EMA cascade↑", f"RSI={rsi_5m:.0f}",
                        f"Vol={vol_ratio:.1f}x"]
         elif (bars_below >= 3 and ema_9 < ema_21 < ema_50
               and rsi_5m < 45 and st_dir == -1):
             direction = "SHORT"
-            reasons = [f"VWAP+3bars↓", f"EMA cascade↓", f"RSI={rsi_5m:.0f}",
+            reasons = ["VWAP+3bars↓", "EMA cascade↓", f"RSI={rsi_5m:.0f}",
                        f"Vol={vol_ratio:.1f}x"]
 
         if not direction:
@@ -1033,10 +1022,10 @@ class MultiStrategyEngine:
 
         if st_dir == 1 and ema_9 > ema_21 and 30 < rsi_5m < 72:
             direction = "LONG"
-            reasons = [f"ST flip↑", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
+            reasons = ["ST flip↑", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
         elif st_dir == -1 and ema_9 < ema_21 and 20 < rsi_5m < 70:
             direction = "SHORT"
-            reasons = [f"ST flip↓", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
+            reasons = ["ST flip↓", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
 
         if not direction:
             return None
@@ -1479,12 +1468,12 @@ class MultiStrategyEngine:
                 and close > ema_20):
             direction = "LONG"
             reasons = [f"ADX={adx_val:.0f} breakout↑", f"+DI={plus_di:.0f}>{minus_di:.0f}",
-                       f"Close>EMA20", f"RSI={rsi_5m:.0f}"]
+                       "Close>EMA20", f"RSI={rsi_5m:.0f}"]
         elif (minus_di > plus_di and ema_9 < ema_21 and rsi_5m < 55
               and close < ema_20):
             direction = "SHORT"
             reasons = [f"ADX={adx_val:.0f} breakout↓", f"-DI={minus_di:.0f}>{plus_di:.0f}",
-                       f"Close<EMA20", f"RSI={rsi_5m:.0f}"]
+                       "Close<EMA20", f"RSI={rsi_5m:.0f}"]
 
         if not direction:
             return None
@@ -1540,8 +1529,8 @@ class MultiStrategyEngine:
         if np.isnan(close) or ema_9 == 0 or ema_20 == 0:
             return None
 
-        # Must be a strong AND strengthening trend
-        if adx_val < 25 or adx_val <= adx_prev:
+        # Must be a strong AND strengthening trend (30 filters out chop)
+        if adx_val < 30 or adx_val <= adx_prev:
             return None
 
         # DI must show clear directional dominance
@@ -1610,6 +1599,7 @@ class MultiStrategyEngine:
             nifty_price=close,
             reason=" | ".join(reasons),
             pullback_count=0,
+            adx=adx_val,
         )
 
     def _check_orb_breakout(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
@@ -1730,7 +1720,7 @@ class MultiStrategyEngine:
         if (close > high_prev and bb_pctb > 0.85 and ema_9 > ema_20):
             direction = "LONG"
             reasons = [
-                f"BB squeeze break↑",
+                "BB squeeze break↑",
                 f"BB%B={bb_pctb:.2f}",
                 f"Vol={vol_ratio:.1f}x",
                 f"CPR_W={cpr_w:.0f}",
@@ -1738,7 +1728,7 @@ class MultiStrategyEngine:
         elif (close < low_prev and bb_pctb < 0.15 and ema_9 < ema_20):
             direction = "SHORT"
             reasons = [
-                f"BB squeeze break↓",
+                "BB squeeze break↓",
                 f"BB%B={bb_pctb:.2f}",
                 f"Vol={vol_ratio:.1f}x",
                 f"CPR_W={cpr_w:.0f}",
@@ -1819,7 +1809,7 @@ class MultiStrategyEngine:
                 direction = "LONG"
                 reasons = [
                     "VWAP bounce↑",
-                    f"RSI5 cross 45",
+                    "RSI5 cross 45",
                     f"RSI15={rsi_15m:.0f}",
                     f"VWAP dist={vwap_dist:.1f}",
                 ]
@@ -1839,7 +1829,7 @@ class MultiStrategyEngine:
                 direction = "SHORT"
                 reasons = [
                     "VWAP bounce↓",
-                    f"RSI5 cross 55",
+                    "RSI5 cross 55",
                     f"RSI15={rsi_15m:.0f}",
                     f"VWAP dist={vwap_dist:.1f}",
                 ]
@@ -1941,9 +1931,7 @@ class MultiStrategyEngine:
             vwap_prox = abs(close - vwap_val) / atr_val
             if vwap_prox < 0.5:
                 conf += 4
-        if direction == "LONG" and willr < -85:
-            conf += 3
-        elif direction == "SHORT" and willr > -15:
+        if direction == "LONG" and willr < -85 or direction == "SHORT" and willr > -15:
             conf += 3
         conf = min(conf, 100)
 

@@ -8,8 +8,6 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
-
 from config import settings
 
 

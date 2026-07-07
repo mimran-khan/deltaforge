@@ -41,12 +41,16 @@ htmlcov/
 *.pem
 *.key
 credentials.json
+client_secret_*.json
+*-service-account*.json
+indexingproject-*.json
 
 # Temporary analysis / scratch
 tmp/
 
 # Package manager lock (large, not needed for app)
 uv.lock
+package-lock.json
 
 # Old mock dashboard
 dashboard-mock/

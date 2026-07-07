@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -25,7 +25,6 @@ from loguru import logger
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from config import settings
 from config.instruments import Instrument, get_futures_instruments
 from engine.broker import BrokerConnection
 

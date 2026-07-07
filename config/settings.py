@@ -9,6 +9,7 @@ See .env.example for the full list of overridable settings.
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -79,7 +80,7 @@ BANKNIFTY_INDEX_TOKEN = "99926009"
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
 FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
-CAPITAL_PER_LOT = 3_000         # 1 lot per Rs 3,000 (aggressive compounding, validated)
+CAPITAL_PER_LOT = 15_000        # 1 lot per Rs 15,000 (wider SL needs fewer lots to keep risk constant)
 MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo daily
 
 CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "100"))
