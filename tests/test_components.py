@@ -1190,6 +1190,7 @@ class TestTradingEngineDeep(unittest.TestCase):
             signal=signal,
             prem_state=prem,
             peak_premium=100,
+            candles_held=2,
         )
         engine._paper_positions = [pos]
 

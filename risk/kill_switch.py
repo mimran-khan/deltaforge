@@ -39,7 +39,9 @@ def is_halted() -> bool:
 
 
 def set_halt(reason: str):
-    _halt_path().write_text(json.dumps({
+    path = _halt_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
         "halted_at": datetime.now(IST).isoformat(),
         "reason": reason,
     }))

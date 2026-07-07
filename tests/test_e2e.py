@@ -952,10 +952,9 @@ class TestBacktestRegression(unittest.TestCase):
 
         from engine.multi_strategy_engine import MultiStrategyEngine
 
-        df = pd.read_csv(data_path)
-        dt_col = "Datetime" if "Datetime" in df.columns else "datetime"
-        df[dt_col] = pd.to_datetime(df[dt_col])
-        df.set_index(dt_col, inplace=True)
+        df = pd.read_csv(data_path, index_col=0, parse_dates=True)
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
 
         engine = MultiStrategyEngine()
         first_day = sorted(set(df.index.date))[0]
@@ -980,10 +979,9 @@ class TestBacktestRegression(unittest.TestCase):
 
         from engine.multi_strategy_engine import MultiStrategyEngine
 
-        df = pd.read_csv(data_path)
-        dt_col = "Datetime" if "Datetime" in df.columns else "datetime"
-        df[dt_col] = pd.to_datetime(df[dt_col])
-        df.set_index(dt_col, inplace=True)
+        df = pd.read_csv(data_path, index_col=0, parse_dates=True)
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
 
         engine = MultiStrategyEngine()
         unique_days = sorted(set(df.index.date))

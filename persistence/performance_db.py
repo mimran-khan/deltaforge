@@ -23,6 +23,7 @@ class PerformanceDB:
 
     def __init__(self, db_path: Optional[str] = None):
         path = db_path or str(settings.DB_PATH)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")

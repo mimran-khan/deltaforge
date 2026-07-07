@@ -167,8 +167,8 @@ class TestSendEodReport(unittest.TestCase):
 
         msg = mock_alert.call_args[0][0]
         self.assertIn("EOD REPORT", msg)
-        self.assertIn("11000", msg)
-        self.assertIn("+1000", msg)
+        self.assertIn("11,000", msg)
+        self.assertIn("+1,000", msg)
         self.assertIn("100%", msg)
 
 
