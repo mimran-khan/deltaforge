@@ -17,7 +17,7 @@ from config import settings
 from dashboard.routes import router
 from dashboard.websocket import start_watcher, stop_watcher, ws_endpoint
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "docs"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "dashboard-mock"
 
 DASHBOARD_HOST = getattr(settings, "DASHBOARD_HOST", "127.0.0.1")
 DASHBOARD_PORT = int(getattr(settings, "DASHBOARD_PORT", 8900))
