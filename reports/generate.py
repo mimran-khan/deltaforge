@@ -193,7 +193,7 @@ def compute_overall(trades: list[dict], capital: dict) -> dict:
 
     strategy_list = [
         {"name": s, "trades": d["n"], "wins": d["w"],
-         "wr": round(d["w"] / d["n"] * 100, 1) if d["n"] else 0,
+            "wr": round(d["w"] / d["n"] * 100, 1) if d["n"] else 0,
          "pnl": round(d["pnl"], 2)}
         for s, d in sorted(strats.items(), key=lambda x: x[1]["pnl"], reverse=True)
     ]
@@ -793,7 +793,7 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
 <div class="loader" id="loader">
   <div class="loader-logo">DeltaForge</div>
   <div class="loader-bar"></div>
-</div>
+        </div>
 
 <canvas class="bg-canvas" id="particles"></canvas>
 <div class="bg-glow">
@@ -801,7 +801,7 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
   <div class="orb orb-4"></div>
-</div>
+      </div>
 
 <div class="app">
   <div class="header-fixed">
@@ -818,13 +818,13 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
     <button class="nav-btn" data-p="p-trades">Trades</button>
     <button class="nav-btn" data-p="p-calendar">Calendar</button>
     <button class="nav-btn" data-p="p-analytics">Analytics</button>
-  </div>
+        </div>
 
   <!-- ═══ OVERVIEW ═══ -->
   <div id="p-overview" class="panel active">
     <div class="hero-banner">
       <img src="data:image/jpeg;base64,{_bg_b64()}" alt="">
-    </div>
+        </div>
     <div class="kpi-grid">
       <div class="glass kpi animate-in {"hero" if overall["total_pnl"] >= 0 else "hero-neg"}"><div class="kpi-info">i<span class="kpi-tip">Total realized P&amp;L</span></div><div class="kpi-label">Net P&amp;L</div><div class="kpi-val counter" data-target="{overall["total_pnl"]:.0f}">{_pnl_sign(overall["total_pnl"])}<span class="kpi-arrow {"up" if overall["total_pnl"] >= 0 else "down"}">{"&#9650;" if overall["total_pnl"] >= 0 else "&#9660;"}</span></div><div class="kpi-sub">{overall["trading_days"]} days &middot; {_pnl_sign(overall["avg_pnl"])}/trade &middot; <span class="{"pos" if overall["total_pnl"] >= 0 else "neg"}">{overall["total_pnl"] / total_deployed * 100:+.1f}%</span></div></div>
       <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">{overall["wins"]} winners, {overall["losses"]} losers</span></div><div class="kpi-label">Win Rate</div><div class="kpi-val">{overall["wr"]}%<span class="kpi-arrow {"up" if overall["wr"] >= 50 else "down"}">{"&#9650;" if overall["wr"] >= 50 else "&#9660;"}</span></div><div class="kpi-sub">{overall["wins"]}W / {overall["losses"]}L</div></div>
@@ -833,12 +833,12 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
       <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Single best trade</span></div><div class="kpi-label">Best Trade</div><div class="kpi-val pos">{overall["best"]:+,.0f}<span class="kpi-arrow up">&#9650;</span></div></div>
       <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Single worst trade</span></div><div class="kpi-label">Worst Trade</div><div class="kpi-val neg">{overall["worst"]:+,.0f}<span class="kpi-arrow down">&#9660;</span></div></div>
       <div class="glass kpi animate-in"><div class="kpi-info">i<span class="kpi-tip">Peak to trough drawdown</span></div><div class="kpi-label">Max Drawdown</div><div class="kpi-val neg">{overall["max_dd"]:.1f}%<span class="kpi-arrow down">&#9660;</span></div></div>
-    </div>
+        </div>
 
     <!-- Strategy Performance Cards -->
     <div class="strat-cards">
 {_build_strat_cards(overall["strategies"])}
-    </div>
+      </div>
 
     <!-- Last Day Summary -->
     <div class="last-day glass">
@@ -905,18 +905,18 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
       <div class="glass stat"><div class="stat-label">Win Streak</div><div class="stat-val pos">{streak_w} days</div></div>
       <div class="glass stat"><div class="stat-label">Loss Streak</div><div class="stat-val neg">{streak_l} days</div></div>
       <div class="glass stat"><div class="stat-label">Avg Hold</div><div class="stat-val">{avg_hold} bars</div></div>
-    </div>
+        </div>
 
     <div class="chart-row">
       <div class="glass">
         <div class="chart-head"><span class="chart-title">Drawdown</span><span class="chart-sub">max {overall["max_dd"]:.1f}%</span></div>
         <div class="chart-container chart-container-sm" id="dd-chart"></div>
-      </div>
+        </div>
       <div class="glass">
         <div class="chart-head"><span class="chart-title">Win Rate Over Time</span><span class="chart-sub">current {overall["wr"]}%</span></div>
         <div class="chart-container chart-container-sm" id="wr-chart"></div>
+        </div>
       </div>
-    </div>
 
     <div class="glass chart-wrap">
       <div class="chart-head"><span class="chart-title">P&amp;L Distribution</span><span class="chart-sub">{len(trades)} trades</span></div>

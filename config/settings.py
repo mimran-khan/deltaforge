@@ -82,6 +82,7 @@ FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
 CAPITAL_PER_LOT = 15_000        # 1 lot per Rs 15,000 (wider SL needs fewer lots to keep risk constant)
 MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo daily
+MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "8000"))
 
 CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "100"))
 COMPOUND_DAILY = True
@@ -92,7 +93,7 @@ TRAIL_PCT = float(os.getenv("TRAIL_PCT", "2"))
 SCAN_WARMUP_BARS = int(os.getenv("SCAN_WARMUP_BARS", "50"))
 LATE_START_CATCHUP_ENABLED = os.getenv("LATE_START_CATCHUP_ENABLED", "true").lower() in ("1", "true", "yes")
 LATE_START_CATCHUP_MINUTES = int(os.getenv("LATE_START_CATCHUP_MINUTES", "15"))  # after ENTRY_START
-LATE_START_CATCHUP_DRY_RUN = os.getenv("LATE_START_CATCHUP_DRY_RUN", "true").lower() in ("1", "true", "yes")
+LATE_START_CATCHUP_DRY_RUN = os.getenv("LATE_START_CATCHUP_DRY_RUN", "false").lower() in ("1", "true", "yes")
 SHOCK_THRESHOLD_PCT = float(os.getenv("SHOCK_THRESHOLD_PCT", "1.5"))
 SHOCK_LOOKBACK_BARS = int(os.getenv("SHOCK_LOOKBACK_BARS", "3"))
 

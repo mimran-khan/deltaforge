@@ -626,12 +626,16 @@ class TradingEngine:
     def _check_emergency_sl(self):
         """Emergency-only exit between bar closes -- flash crash protection.
 
-        Normal SL/target/trail checks happen on bar close only (in
-        _update_paper_positions) to match backtest behavior and avoid
-        intrabar whipsaw that caused most live SL hits.
+        In PAPER mode this is disabled: the normal bar-close SL (with grace
+        period) handles all exits. During API outages the system waits for
+        data to recover and reconciles on the next closed bar — no reason
+        to panic-exit at the worst intra-bar price when no real money is at risk.
 
-        This fires only when Nifty moves > 2x ATR adversely from entry.
+        In LIVE mode this fires when Nifty moves > 2x ATR adversely from entry.
         """
+        if settings.TRADING_MODE == "paper":
+            return
+
         if not self._paper_positions or not self._nifty_spot:
             return
 
@@ -693,7 +697,15 @@ class TradingEngine:
             exit_reason = None
             exit_prem_raw = cur_prem
 
-            if cur_prem <= pos.sl_premium and pos.candles_held >= 2:
+            max_loss_per_trade = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
+            unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
+            if unrealised_loss >= max_loss_per_trade:
+                exit_reason = "HARD_CAP"
+                logger.warning(
+                    "HARD LOSS CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting",
+                    pos.signal.signal_type, pos.signal.direction,
+                    unrealised_loss, max_loss_per_trade)
+            elif cur_prem <= pos.sl_premium and pos.candles_held >= 2:
                 exit_reason = "STEP_TRAIL" if pos.sl_premium >= pos.entry_premium else "SL"
                 exit_prem_raw = pos.sl_premium
             elif cur_prem >= pos.prem_state.target_premium:
@@ -1227,6 +1239,8 @@ class TradingEngine:
                     source = "broker (late start)"
                 count = len(self.candle_builder.get_candles())
                 return self._finalize_seed(count, source)
+            else:
+                logger.warning("Late start: broker API failed (rate-limited?) -- using disk/CSV fallback")
 
         if disk_count >= settings.SCAN_WARMUP_BARS:
             candles = self.candle_builder.get_candles()
@@ -1245,12 +1259,12 @@ class TradingEngine:
 
         if not self.broker.is_active:
             logger.warning("Broker not active -- cannot seed historical candles")
-            return disk_count
+            return self._csv_fallback_seed(disk_count)
 
         hist_df = self._fetch_broker_5m_df()
         if hist_df.empty:
-            logger.info("No historical data returned for seeding")
-            return 0
+            logger.warning("Broker API returned no data (rate-limited?) -- trying CSV fallback")
+            return self._csv_fallback_seed(disk_count)
 
         self.candle_builder.seed(hist_df)
         self._nifty_spot = float(hist_df["close"].iloc[-1])
@@ -1265,6 +1279,36 @@ class TradingEngine:
         self._export_engine_state()
         self._seed_1m_historical()
         return len(hist_df)
+
+    def _csv_fallback_seed(self, existing_count: int) -> int:
+        """Last-resort seed from local CSV files when broker API is unavailable."""
+        csv_candidates = [
+            Path(settings.DATA_DIR) / "nifty_5m_real.csv",
+            Path(settings.DATA_DIR) / "nifty_5m_combined.csv",
+            Path(settings.DATA_DIR) / "nifty_5m_lastweek.csv",
+        ]
+        for csv_path in csv_candidates:
+            if not csv_path.exists():
+                continue
+            try:
+                df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+                if len(df) < settings.SCAN_WARMUP_BARS:
+                    continue
+                seed_df = df.tail(settings.SCAN_WARMUP_BARS + 25)
+                for col in ["open", "high", "low", "close"]:
+                    seed_df[col] = seed_df[col].astype(float)
+                if "volume" in seed_df.columns:
+                    seed_df["volume"] = seed_df["volume"].fillna(0).astype(int)
+                else:
+                    seed_df["volume"] = 0
+                seed_df.index.name = "timestamp"
+                self.candle_builder.seed(seed_df)
+                return self._finalize_seed(len(seed_df), f"CSV fallback ({csv_path.name})")
+            except Exception as e:
+                logger.debug("CSV fallback {} failed: {}", csv_path.name, e)
+                continue
+        logger.warning("No CSV fallback available -- trading with {} bars", existing_count)
+        return existing_count
 
     def _seed_1m_historical(self):
         """Seed 1-minute chart candles for dashboard (does not affect strategy)."""
