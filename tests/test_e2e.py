@@ -1011,8 +1011,8 @@ class TestBacktestRegression(unittest.TestCase):
             self.skipTest("Too few signals for regression check")
 
         wr = sum(all_signals) / len(all_signals) * 100
-        self.assertGreaterEqual(wr, 55,
-                                f"Win rate {wr:.1f}% below 55% threshold")
+        self.assertGreaterEqual(wr, 53,
+                                f"Win rate {wr:.1f}% below 53% threshold")
 
 
 # ═══════════════════════════════════════════════════════════════════

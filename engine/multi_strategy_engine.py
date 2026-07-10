@@ -595,7 +595,7 @@ class MultiStrategyEngine:
 
         bar_vol = indicators.get("volume")
         if bar_vol is not None and bar_idx < len(bar_vol) and bar_vol.iloc[bar_idx] == 0:
-            logger.warning("Bar {} has volume=0 (REST fallback) -- signal quality may be affected", bar_idx)
+            logger.debug("Bar {} has volume=0 (REST fallback) -- proceeding with OHLC only", bar_idx)
 
         if not self._bar_quality_ok(indicators, bar_idx):
             return []

@@ -693,6 +693,31 @@ class TestPremiumModelDeep(unittest.TestCase):
         reason = ps.check_exit(mid_price, None)
         self.assertIsNone(reason)
 
+    def test_spot_based_entry_premium_varies_with_spot(self):
+        """Entry premium should differ when Nifty spot differs."""
+        ps_low = self._make("LONG", entry_index_price=23000, confluence_score=80)
+        ps_high = self._make("LONG", entry_index_price=25000, confluence_score=80)
+        self.assertNotAlmostEqual(ps_low.entry_premium, ps_high.entry_premium, places=0)
+        self.assertGreater(ps_high.entry_premium, ps_low.entry_premium)
+
+    def test_spot_based_entry_premium_varies_with_dte(self):
+        """Entry premium should be higher with more DTE (more time value)."""
+        ps_short = self._make("LONG", entry_index_price=24000, confluence_score=80, dte=1)
+        ps_long = self._make("LONG", entry_index_price=24000, confluence_score=80, dte=5)
+        self.assertGreater(ps_long.entry_premium, ps_short.entry_premium)
+
+    def test_spot_zero_uses_base_premium_fallback(self):
+        """When spot=0, should fall back to base_premium parameter."""
+        ps = self._make("LONG", entry_index_price=0, base_premium=95, confluence_score=80)
+        expected_base = 95 + (80 - 40) / 100 * 8
+        self.assertAlmostEqual(ps.entry_premium, expected_base, places=1)
+
+    def test_spot_based_premium_realistic_range(self):
+        """At Nifty ~24200, DTE=3, premium should be roughly 100-120."""
+        ps = self._make("LONG", entry_index_price=24200, confluence_score=82, dte=3)
+        self.assertGreater(ps.entry_premium, 90)
+        self.assertLess(ps.entry_premium, 130)
+
 
 # ═══════════════════════════════════════════════════════════════════
 #  PERFORMANCE DB -- data integrity
@@ -1243,15 +1268,25 @@ class TestTradingEngineDeep(unittest.TestCase):
         )
 
         engine._paper_positions = [pos]
-        with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
-            engine._nifty_spot = 23960  # 40pts < 56 (2x28) -- no emergency
-            engine._check_emergency_sl()
-        self.assertEqual(len(engine._paper_positions), 1)
 
+        # In paper mode, emergency SL is disabled (normal bar-close SL handles it)
         with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
-            engine._nifty_spot = 23940  # 60pts > 56 (2x28) -- emergency
+            engine._nifty_spot = 23940  # 60pts > 56 (2x28) -- would fire in live
             engine._check_emergency_sl()
-        self.assertEqual(len(engine._paper_positions), 0)
+        self.assertEqual(len(engine._paper_positions), 1)  # NOT closed in paper mode
+
+        # In live mode, emergency SL fires
+        with patch.object(settings, "TRADING_MODE", "live"):
+            engine._paper_positions = [pos]
+            with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+                engine._nifty_spot = 23960  # 40pts < 56 -- no emergency
+                engine._check_emergency_sl()
+            self.assertEqual(len(engine._paper_positions), 1)
+
+            with patch.object(engine, "_save_paper_positions"), patch("engine.trading_engine.send_trade_alert"):
+                engine._nifty_spot = 23940  # 60pts > 56 -- emergency fires
+                engine._check_emergency_sl()
+            self.assertEqual(len(engine._paper_positions), 0)
 
 
 # ═══════════════════════════════════════════════════════════════════

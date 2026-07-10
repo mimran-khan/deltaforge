@@ -10,7 +10,19 @@ broker LTP data, but the underlying logic is identical.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+
+
+def _estimate_atm_premium(spot: float, dte: float, iv_annual: float = 0.12) -> float:
+    """ATM option premium approximation (Black-Scholes simplified).
+
+    spot × IV × sqrt(DTE/365) × 0.4 gives a realistic ATM premium
+    that varies with index level and time to expiry.
+    """
+    if spot <= 0 or dte <= 0:
+        return 100.0
+    return spot * iv_annual * math.sqrt(dte / 365) * 0.4
 
 
 @dataclass
@@ -167,12 +179,15 @@ def create_premium_state(
 ) -> PremiumState:
     """Create a premium state for a new trade, deterministically.
 
-    Uses strategy-specific target multipliers: SUPERTREND (80% WR) gets
-    wider targets, PULLBACK gets tighter targets for faster exits.
+    Uses spot-based ATM premium estimation so entry price varies with
+    index level and DTE — realistic across different market conditions.
+    Falls back to base_premium when spot is unavailable.
     """
     abs_conf = abs(confluence_score)
     premium_adj = (abs_conf - 40) / 100 * 8
-    entry_premium = base_premium + max(0, premium_adj)
+    base = (_estimate_atm_premium(entry_index_price, dte)
+            if entry_index_price > 0 else base_premium)
+    entry_premium = base + max(0, premium_adj)
 
     tiers = STRATEGY_TARGET_MULT.get(
         signal_type, {70: 1.45, 50: 1.35, 0: 1.25})
