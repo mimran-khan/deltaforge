@@ -264,17 +264,32 @@ class CapitalTracker:
         Uses the smaller of CAPITAL_PER_LOT and actual premium exposure
         (premium * lot_size) to avoid over-leveraging when premium is high.
         Drawdown multiplier can reduce this to 0 (halt).
+
+        DTE-based caps reduce lots near expiry where gamma amplifies
+        premium moves and a single 5-min bar can overshoot HARD_CAP.
         """
         sizing_mult = self.get_sizing_multiplier()
         if sizing_mult <= 0:
             return 0
 
         deployable = self.current_capital * (settings.CAPITAL_DEPLOY_PCT / 100)
-        per_lot_config = getattr(settings, 'CAPITAL_PER_LOT', 10_000)
+        per_lot_config = getattr(settings, 'CAPITAL_PER_LOT', 25_000)
         lot_size = getattr(settings, 'NIFTY_LOT_SIZE', 65)
         per_lot_exposure = premium_per_unit * lot_size
         per_lot = max(per_lot_config, per_lot_exposure)
         cap = getattr(settings, 'MAX_LOTS_CAP', 20)
+
+        dte_caps = getattr(settings, 'DTE_LOT_CAPS', None)
+        if dte_caps:
+            today = datetime.now(IST).date()
+            expiry_day = getattr(settings, 'NIFTY_EXPIRY_DAY', 1)
+            days_ahead = (expiry_day - today.weekday()) % 7
+            dte = float(max(days_ahead, 0))
+            for threshold in sorted(dte_caps.keys()):
+                if dte <= threshold:
+                    cap = min(cap, dte_caps[threshold])
+                    break
+
         lots = max(1, int(deployable / per_lot))
         lots = int(lots * sizing_mult)
         return max(1, min(lots, cap))

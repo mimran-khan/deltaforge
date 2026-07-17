@@ -490,7 +490,7 @@ class MultiStrategyEngine:
             return []
 
         if time_str:
-            entry_start = entry_start_override or "09:30"
+            entry_start = entry_start_override or "10:00"
             entry_end = entry_end_override or getattr(settings, 'ENTRY_END', "14:30")
             if time_str < entry_start or time_str > entry_end:
                 return []
@@ -723,7 +723,7 @@ class MultiStrategyEngine:
                     if bear_candles >= 3:
                         reasons.append(f"TrendCont {bear_candles} bear candles")
 
-        if pb_count < 1:
+        if pb_count < 2:
             return None
 
         if trend_cont:
@@ -1020,17 +1020,17 @@ class MultiStrategyEngine:
         direction = None
         reasons = []
 
-        if st_dir == 1 and ema_9 > ema_21 and 30 < rsi_5m < 72:
+        rsi_15m = self._htf_rsi(ind_dict, idx, 50)
+
+        if st_dir == 1 and ema_9 > ema_21 and 30 < rsi_5m < 72 and rsi_15m < 70:
             direction = "LONG"
             reasons = ["ST flip↑", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
-        elif st_dir == -1 and ema_9 < ema_21 and 20 < rsi_5m < 70:
+        elif st_dir == -1 and ema_9 < ema_21 and 20 < rsi_5m < 70 and rsi_15m > 30:
             direction = "SHORT"
             reasons = ["ST flip↓", f"ADX={adx_val:.0f}", f"RSI={rsi_5m:.0f}"]
 
         if not direction:
             return None
-
-        rsi_15m = self._htf_rsi(ind_dict, idx, 50)
         conf = 70
         if (direction == "LONG" and rsi_15m > 55) or \
            (direction == "SHORT" and rsi_15m < 45):
@@ -1529,13 +1529,13 @@ class MultiStrategyEngine:
         if np.isnan(close) or ema_9 == 0 or ema_20 == 0:
             return None
 
-        # Must be a strong AND strengthening trend (30 filters out chop)
-        if adx_val < 30 or adx_val <= adx_prev:
+        # Must be a strong AND strengthening trend (38 filters out weak trends)
+        if adx_val < 38 or adx_val <= adx_prev:
             return None
 
-        # DI must show clear directional dominance
+        # DI must show clear directional dominance (12 avoids noise-level spreads)
         di_spread = abs(plus_di - minus_di)
-        if di_spread < 5:
+        if di_spread < 12:
             return None
 
         rsi_15m = self._htf_rsi(ind_dict, idx, 50)

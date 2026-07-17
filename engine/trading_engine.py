@@ -603,12 +603,13 @@ class TradingEngine:
         self._save_paper_positions()
 
     def _check_realtime_exits(self):
-        """Track peak premium between bar closes for trailing stop logic.
+        """Track peak premium and enforce HARD_CAP between bar closes.
 
         SL/target/trail exits happen on bar close only (in
         _update_paper_positions) to match backtest behavior and avoid
-        intrabar whipsaw on synthetic premiums. Only peak tracking runs
-        intrabar so the bar-close trail calculation is accurate.
+        intrabar whipsaw on synthetic premiums. Peak tracking and
+        HARD_CAP enforcement run intrabar (~every 5s) so runaway losses
+        are caught before the next 5-min bar close.
 
         Emergency protection for flash crashes is handled separately
         by _check_emergency_sl (2x ATR threshold).
@@ -616,12 +617,29 @@ class TradingEngine:
         if not self._paper_positions or not self._nifty_spot:
             return
 
+        max_loss = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
+        closed = []
+
         for pos in self._paper_positions:
             cur_prem = pos.prem_state.current_premium(
                 self._nifty_spot, pos.candles_held)
 
             if cur_prem > pos.peak_premium:
                 pos.peak_premium = cur_prem
+
+            unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
+            if unrealised_loss >= max_loss:
+                logger.warning(
+                    "INTRA-BAR HARD CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting",
+                    pos.signal.signal_type, pos.signal.direction,
+                    unrealised_loss, max_loss)
+                self._close_paper_position(pos, cur_prem, "HARD_CAP")
+                closed.append(pos)
+
+        for pos in closed:
+            self._paper_positions.remove(pos)
+        if closed:
+            self._save_paper_positions()
 
     def _check_emergency_sl(self):
         """Emergency-only exit between bar closes -- flash crash protection.
@@ -696,6 +714,7 @@ class TradingEngine:
 
             exit_reason = None
             exit_prem_raw = cur_prem
+            grace_bars = 1 if pos.prem_state.dte <= 1.5 else 2
 
             max_loss_per_trade = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
             unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
@@ -705,7 +724,7 @@ class TradingEngine:
                     "HARD LOSS CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting",
                     pos.signal.signal_type, pos.signal.direction,
                     unrealised_loss, max_loss_per_trade)
-            elif cur_prem <= pos.sl_premium and pos.candles_held >= 2:
+            elif cur_prem <= pos.sl_premium and pos.candles_held >= grace_bars:
                 exit_reason = "STEP_TRAIL" if pos.sl_premium >= pos.entry_premium else "SL"
                 exit_prem_raw = pos.sl_premium
             elif cur_prem >= pos.prem_state.target_premium:
@@ -749,6 +768,7 @@ class TradingEngine:
                     trail_floor = pos.peak_premium * (1 - trail_cfg["pullback"] / 100)
                     if cur_prem <= trail_floor:
                         exit_reason = "STRATEGY_TRAIL"
+                        exit_prem_raw = max(cur_prem, pos.entry_premium)
 
             if exit_reason:
                 self._close_paper_position(pos, exit_prem_raw, exit_reason)
