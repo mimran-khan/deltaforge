@@ -80,7 +80,7 @@ BANKNIFTY_INDEX_TOKEN = "99926009"
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
 FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
-CAPITAL_PER_LOT = 25_000        # 1 lot per Rs 25,000 — keeps max 1-bar loss within HARD_CAP (was 15k, overshooting 8k cap)
+CAPITAL_PER_LOT = 20_000        # 1 lot per Rs 20,000 — balanced: 7 lots gives good PnL with HARD_CAP protection
 MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo daily
 MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "8000"))
 

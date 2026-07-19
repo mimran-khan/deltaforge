@@ -490,7 +490,7 @@ class MultiStrategyEngine:
             return []
 
         if time_str:
-            entry_start = entry_start_override or "10:00"
+            entry_start = entry_start_override or "09:30"
             entry_end = entry_end_override or getattr(settings, 'ENTRY_END', "14:30")
             if time_str < entry_start or time_str > entry_end:
                 return []
@@ -723,7 +723,8 @@ class MultiStrategyEngine:
                     if bear_candles >= 3:
                         reasons.append(f"TrendCont {bear_candles} bear candles")
 
-        if pb_count < 2:
+        min_pb = 1 if direction == "LONG" else 2
+        if pb_count < min_pb:
             return None
 
         if trend_cont:
@@ -992,9 +993,11 @@ class MultiStrategyEngine:
     def _check_supertrend_flip(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
         """Single Supertrend(10,3) flip with EMA + ADX confirmation.
 
-        Proven 80% WR. Fires when supertrend direction changes while
-        short-term trend aligns. Fast ST used as optional boost only.
+        DISABLED: Data shows net loser across 18 trades (33% WR SHORT,
+        50% WR LONG but low edge). Keeping code for future re-evaluation.
         """
+        return None
+
         if self._supertrd_count >= self.MAX_SUPERTRD_PER_DAY:
             return None
         if idx < 2:
@@ -1589,6 +1592,9 @@ class MultiStrategyEngine:
            (direction == "SHORT" and st_dir == -1):
             conf += 3
         conf = min(conf, 100)
+
+        if conf < 90:
+            return None
 
         return TradeSignal(
             direction=direction,
