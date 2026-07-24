@@ -751,6 +751,7 @@ class MultiStrategyEngine:
             nifty_price=close,
             reason=" | ".join(reasons),
             pullback_count=pb_count,
+            adx=adx_val,
         )
 
     def _check_stoch_cross(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:
@@ -803,6 +804,8 @@ class MultiStrategyEngine:
         if htf_strength > 10:
             conf += 4
 
+        adx_val = self._sv(ind_dict.get('adx', pd.Series()), idx, 0)
+
         return TradeSignal(
             direction=direction,
             signal_type="STOCH_CROSS",
@@ -812,6 +815,7 @@ class MultiStrategyEngine:
             nifty_price=close,
             reason=" | ".join(reasons),
             pullback_count=0,
+            adx=adx_val,
         )
 
     def _check_ema_momentum(self, ind_dict: dict, idx: int) -> Optional[TradeSignal]:

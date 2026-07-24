@@ -70,7 +70,7 @@ DASHBOARD_API_TOKEN = os.getenv("DASHBOARD_API_TOKEN", "")
 # ═══════════════════════════════════════════════════════════════════
 NIFTY_LOT_SIZE = 65            # NSE revised Jan 2026 (was 75)
 BANKNIFTY_LOT_SIZE = 30
-NIFTY_EXPIRY_DAY = 1       # Tuesday = 1 (Monday=0, Sunday=6)
+NIFTY_EXPIRY_DAY = 3       # Thursday = 3 (Monday=0, Sunday=6)
 NIFTY_INDEX_TOKEN = "99926000"
 BANKNIFTY_INDEX_TOKEN = "99926009"
 
@@ -85,6 +85,9 @@ MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo
 MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "8000"))
 
 DTE_LOT_CAPS = {1: 4, 2: 6}    # gamma protection: DTE<=1 max 4 lots, DTE<=2 max 6 lots
+
+MAX_TRADES_PER_DIRECTION = int(os.getenv("MAX_TRADES_PER_DIRECTION", "2"))
+DIRECTION_LOSS_CAP = int(os.getenv("DIRECTION_LOSS_CAP", "12000"))
 
 CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "100"))
 COMPOUND_DAILY = True

@@ -137,6 +137,8 @@ class TradingEngine:
         self._last_price_time: Optional[datetime] = None
         self._skip_today = False
         self._last_atr: float = 30.0
+        self._day_dir_count: dict[str, int] = {"LONG": 0, "SHORT": 0}
+        self._day_dir_pnl: dict[str, float] = {"LONG": 0.0, "SHORT": 0.0}
 
         self._event_log = Path(settings.DATA_DIR) / "events.jsonl"
 
@@ -198,6 +200,8 @@ class TradingEngine:
         self._paper_positions = []
         self._day_signals_count = 0
         self._last_price_time = None
+        self._day_dir_count = {"LONG": 0, "SHORT": 0}
+        self._day_dir_pnl = {"LONG": 0.0, "SHORT": 0.0}
 
         self._load_paper_positions()
 
@@ -386,11 +390,25 @@ class TradingEngine:
 
         open_directions = {p.direction for p in self._paper_positions}
 
+        max_per_dir = getattr(settings, 'MAX_TRADES_PER_DIRECTION', 2)
+        dir_loss_cap = getattr(settings, 'DIRECTION_LOSS_CAP', 12000)
+
         for signal in signals:
             if signal.direction in open_directions:
                 continue
 
             if signal.confidence < ap.min_confidence:
+                continue
+
+            if self._day_dir_count.get(signal.direction, 0) >= max_per_dir:
+                logger.info("DIR CAP: {} blocked — already {} trades in {} today",
+                            signal.signal_type, max_per_dir, signal.direction)
+                continue
+
+            if self._day_dir_pnl.get(signal.direction, 0) <= -dir_loss_cap:
+                logger.info("DIR LOSS CAP: {} blocked — {} PnL={:+.0f} exceeds -{}",
+                            signal.signal_type, signal.direction,
+                            self._day_dir_pnl[signal.direction], dir_loss_cap)
                 continue
 
             decision = self.risk.evaluate(
@@ -408,6 +426,7 @@ class TradingEngine:
 
             logger.info("SIGNAL: {} | {}", signal.summary(), time_str)
             self._enter_trade(signal, decision)
+            self._day_dir_count[signal.direction] = self._day_dir_count.get(signal.direction, 0) + 1
             self._export_engine_state()
             return True
 
@@ -539,6 +558,8 @@ class TradingEngine:
         costs = self._calc_costs(pos.entry_premium, exit_prem, pos.qty, pos.lots)
         pos.pnl = raw_pnl - costs
         pos.exit_premium = exit_prem
+
+        self._day_dir_pnl[pos.direction] = self._day_dir_pnl.get(pos.direction, 0) + pos.pnl
 
         strat_name = f"{pos.signal.signal_type}_{pos.signal.pullback_count}"
         self.capital.record_trade(
