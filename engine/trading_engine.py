@@ -411,6 +411,17 @@ class TradingEngine:
                             self._day_dir_pnl[signal.direction], dir_loss_cap)
                 continue
 
+            rsi_long_max = getattr(settings, 'RSI_LONG_MAX', 72)
+            rsi_short_min = getattr(settings, 'RSI_SHORT_MIN', 28)
+            if signal.direction == "LONG" and signal.htf_rsi > rsi_long_max:
+                logger.info("RSI GATE: {} LONG blocked — HTF RSI {:.0f} > {}",
+                            signal.signal_type, signal.htf_rsi, rsi_long_max)
+                continue
+            if signal.direction == "SHORT" and signal.htf_rsi < rsi_short_min:
+                logger.info("RSI GATE: {} SHORT blocked — HTF RSI {:.0f} < {}",
+                            signal.signal_type, signal.htf_rsi, rsi_short_min)
+                continue
+
             decision = self.risk.evaluate(
                 confluence_score=signal.confidence,
                 direction=signal.direction,

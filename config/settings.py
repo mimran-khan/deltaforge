@@ -80,7 +80,7 @@ BANKNIFTY_INDEX_TOKEN = "99926009"
 STARTING_CAPITAL = float(os.getenv("STARTING_CAPITAL", "10000"))
 FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
-CAPITAL_PER_LOT = 20_000        # 1 lot per Rs 20,000 — balanced: 7 lots gives good PnL with HARD_CAP protection
+CAPITAL_PER_LOT = 12_000        # 1 lot per Rs 12,000 — aggressive: ~1.67x lots for 6%/day target
 MAX_LOTS_CAP = 50               # raised from 20 -- optimizer: 50 lots = +7% geo daily
 MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "8000"))
 
@@ -88,6 +88,8 @@ DTE_LOT_CAPS = {1: 4, 2: 6}    # gamma protection: DTE<=1 max 4 lots, DTE<=2 max
 
 MAX_TRADES_PER_DIRECTION = int(os.getenv("MAX_TRADES_PER_DIRECTION", "2"))
 DIRECTION_LOSS_CAP = int(os.getenv("DIRECTION_LOSS_CAP", "12000"))
+RSI_LONG_MAX = float(os.getenv("RSI_LONG_MAX", "72"))
+RSI_SHORT_MIN = float(os.getenv("RSI_SHORT_MIN", "28"))
 
 CAPITAL_DEPLOY_PCT = float(os.getenv("CAPITAL_DEPLOY_PCT", "100"))
 COMPOUND_DAILY = True
