@@ -394,6 +394,11 @@ class TradingEngine:
         dir_loss_cap = getattr(settings, 'DIRECTION_LOSS_CAP', 12000)
 
         for signal in signals:
+            if not self._is_signal_allowed(signal):
+                logger.info("DIRECTION FILTER: {} {} blocked — not in allowed combos",
+                            signal.signal_type, signal.direction)
+                continue
+
             if signal.direction in open_directions:
                 continue
 
@@ -476,6 +481,28 @@ class TradingEngine:
             logger.info("Catch-up (dry-run): {} | {}", signal.summary(), time_str)
             return True
         return False
+
+    # Strategy-direction combos with proven edge (from 164-trade forensic analysis).
+    # PULLBACK LONG: 65% WR, PF=4.3+ in all market regimes
+    # TREND_RIDE SHORT: profitable, captures strong downmoves
+    # STOCH_CROSS SHORT: small sample but profitable (PF=4.9)
+    _ALLOWED_COMBOS = {
+        ("PULLBACK", "LONG"),
+        ("TREND_RIDE", "SHORT"),
+        ("STOCH_CROSS", "SHORT"),
+    }
+
+    def _is_signal_allowed(self, signal) -> bool:
+        """Check if a signal's strategy+direction combo has proven edge."""
+        sig_type = signal.signal_type
+        direction = signal.direction
+        # Strip trailing _N suffix (e.g. PULLBACK_2 -> PULLBACK, TREND_RIDE_0 -> TREND_RIDE)
+        base = sig_type
+        for suffix in ('_0', '_1', '_2', '_3', '_4'):
+            if base.endswith(suffix):
+                base = base[:-len(suffix)]
+                break
+        return (base, direction) in self._ALLOWED_COMBOS
 
     def _enter_trade(self, signal: TradeSignal, decision: RiskDecision):
         """Open a trade in paper or live mode."""
