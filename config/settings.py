@@ -86,8 +86,8 @@ MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "4000"))
 
 DTE_LOT_CAPS = {0: 3, 1: 4, 2: 6}  # gamma protection: expiry day max 3, DTE<=1 max 4, DTE<=2 max 6
 
-MAX_TRADES_PER_DIRECTION = int(os.getenv("MAX_TRADES_PER_DIRECTION", "2"))
-DIRECTION_LOSS_CAP = int(os.getenv("DIRECTION_LOSS_CAP", "12000"))
+MAX_TRADES_PER_DIRECTION = int(os.getenv("MAX_TRADES_PER_DIRECTION", "3"))
+DIRECTION_LOSS_CAP = int(os.getenv("DIRECTION_LOSS_CAP", "15000"))
 RSI_LONG_MAX = float(os.getenv("RSI_LONG_MAX", "72"))
 RSI_SHORT_MIN = float(os.getenv("RSI_SHORT_MIN", "20"))
 

@@ -491,20 +491,19 @@ class TradingEngine:
             return True
         return False
 
-    # Strategy-direction combos with proven edge.
-    # Re-evaluated with current risk controls (6 lots, Rs 4k cap):
-    # PULLBACK LONG: 65% WR, PF=4.3+ in all market regimes
-    # PULLBACK SHORT: +Rs 28k with caps (was -9.6k uncapped due to lot blowouts)
-    # TREND_RIDE SHORT: profitable, captures strong downmoves
-    # STOCH_CROSS SHORT: PF=4.9, captures stochastic reversals
-    # STOCH_CROSS LONG: small sample, allowing under caps
-    # BLOCKED: TREND_RIDE LONG (-12k capped), SUPERTREND (all, -14k)
+    # Aggressive-Safe whitelist: allow everything with proven edge under
+    # 6-lot cap + Rs 4k hard cap.  Only SUPERTREND is blocked (net -14k
+    # even capped).  Safety nets contain downside; wider whitelist captures
+    # big winners like TREND_RIDE LONG (+84k vs +50k conservative).
     _ALLOWED_COMBOS = {
         ("PULLBACK", "LONG"),
         ("PULLBACK", "SHORT"),
+        ("TREND_RIDE", "LONG"),
         ("TREND_RIDE", "SHORT"),
-        ("STOCH_CROSS", "SHORT"),
         ("STOCH_CROSS", "LONG"),
+        ("STOCH_CROSS", "SHORT"),
+        ("EMA_MOMENTUM", "LONG"),
+        ("EMA_MOMENTUM", "SHORT"),
     }
 
     def _is_signal_allowed(self, signal) -> bool:
