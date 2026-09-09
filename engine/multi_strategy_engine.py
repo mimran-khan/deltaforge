@@ -143,10 +143,10 @@ class MultiStrategyEngine:
     HTF_BULL_RSI = 50
     HTF_BEAR_RSI = 50
 
-    HTF_DEAD_ZONE_LO = 0   # skip when |RSI15 - 50| is in [0, 5)
-    HTF_DEAD_ZONE_HI = 5   # trade when RSI > 55 or < 45
+    HTF_DEAD_ZONE_LO = 0   # skip when |RSI15 - 50| is in [0, 3)
+    HTF_DEAD_ZONE_HI = 3   # trade when RSI > 53 or < 47
 
-    MIN_ADX = 10            # low bar for directional move
+    MIN_ADX = 18            # require meaningful trend (ADX<18 = noise)
     MAX_ADX = 50            # raised to 50 -- optimizer: captures strong trends without filtering
     SUPERTREND_MIN_ADX = 25 # stricter ADX gate for SUPERTREND strategy
 
@@ -1536,8 +1536,9 @@ class MultiStrategyEngine:
         if np.isnan(close) or ema_9 == 0 or ema_20 == 0:
             return None
 
-        # Must be a strong AND strengthening trend (38 filters out weak trends)
-        if adx_val < 38 or adx_val <= adx_prev:
+        # Must be a strong trend; allow ADX to plateau (not strictly rising)
+        # Old: adx_val < 38 or adx_val <= adx_prev — killed signals in real downtrends
+        if adx_val < 38 or adx_val < adx_prev - 2:
             return None
 
         # DI must show clear directional dominance (12 avoids noise-level spreads)
@@ -1565,10 +1566,11 @@ class MultiStrategyEngine:
                 f"RSI5={rsi_5m:.0f}",
             ]
         # SHORT: everything pointing down
+        # LTF RSI floor lowered from 28 to 15 — old value blocked all real downtrends
         elif (ema_9 < ema_20 and close < ema_20
               and minus_di > plus_di
               and rsi_15m < 48
-              and 28 <= rsi_5m <= 50):
+              and 15 <= rsi_5m <= 50):
             direction = "SHORT"
             reasons = [
                 "TrendRide↓",
@@ -1597,7 +1599,7 @@ class MultiStrategyEngine:
             conf += 3
         conf = min(conf, 100)
 
-        if conf < 90:
+        if conf < 70:
             return None
 
         return TradeSignal(

@@ -393,6 +393,15 @@ class TradingEngine:
         max_per_dir = getattr(settings, 'MAX_TRADES_PER_DIRECTION', 2)
         dir_loss_cap = getattr(settings, 'DIRECTION_LOSS_CAP', 12000)
 
+        # GAP_FADE regimes are consistently toxic (-12k over 51 days).
+        # Block all entries when the regime detector classifies GAP_FADE.
+        current_regime = getattr(self.strategy.regime, 'regime', 'UNKNOWN')
+        if current_regime.startswith("GAP_FADE"):
+            if signals:
+                logger.info("GAP_FADE BLOCK: {} signals blocked — {} regime is toxic",
+                            len(signals), current_regime)
+            return False
+
         for signal in signals:
             if not self._is_signal_allowed(signal):
                 logger.info("DIRECTION FILTER: {} {} blocked — not in allowed combos",
@@ -482,14 +491,20 @@ class TradingEngine:
             return True
         return False
 
-    # Strategy-direction combos with proven edge (from 164-trade forensic analysis).
+    # Strategy-direction combos with proven edge.
+    # Re-evaluated with current risk controls (6 lots, Rs 4k cap):
     # PULLBACK LONG: 65% WR, PF=4.3+ in all market regimes
+    # PULLBACK SHORT: +Rs 28k with caps (was -9.6k uncapped due to lot blowouts)
     # TREND_RIDE SHORT: profitable, captures strong downmoves
-    # STOCH_CROSS SHORT: small sample but profitable (PF=4.9)
+    # STOCH_CROSS SHORT: PF=4.9, captures stochastic reversals
+    # STOCH_CROSS LONG: small sample, allowing under caps
+    # BLOCKED: TREND_RIDE LONG (-12k capped), SUPERTREND (all, -14k)
     _ALLOWED_COMBOS = {
         ("PULLBACK", "LONG"),
+        ("PULLBACK", "SHORT"),
         ("TREND_RIDE", "SHORT"),
         ("STOCH_CROSS", "SHORT"),
+        ("STOCH_CROSS", "LONG"),
     }
 
     def _is_signal_allowed(self, signal) -> bool:

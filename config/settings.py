@@ -82,7 +82,7 @@ FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
 CAPITAL_PER_LOT = 12_000        # 1 lot per Rs 12,000
 MAX_LOTS_CAP = 6                # hard cap: never exceed 6 lots (limits worst-case to ~Rs 5k)
-MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "5000"))
+MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "4000"))
 
 DTE_LOT_CAPS = {0: 3, 1: 4, 2: 6}  # gamma protection: expiry day max 3, DTE<=1 max 4, DTE<=2 max 6
 
@@ -227,7 +227,7 @@ SLIPPAGE_POINTS = 0.30          # half-spread as slippage (buy at ask, sell at b
 MARKET_OPEN = "09:15"
 MARKET_CLOSE = "15:30"
 ENTRY_START = "09:30"           # entry from 09:30 (after first candle)
-ENTRY_END = os.getenv("ENTRY_END", "14:30")
+ENTRY_END = os.getenv("ENTRY_END", "15:00")
 NO_NEW_ENTRY_AFTER = ENTRY_END  # alias for backward compat
 SQUARE_OFF_TIME = "15:15"       # hard exit
 SESSION_LOGIN_TIME = "08:30"
