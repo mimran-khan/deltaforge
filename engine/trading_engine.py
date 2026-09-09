@@ -491,26 +491,19 @@ class TradingEngine:
             return True
         return False
 
-    # Aggressive-Safe whitelist: allow everything with proven edge under
-    # 6-lot cap + Rs 4k hard cap.  Only SUPERTREND is blocked (net -14k
-    # even capped).  Safety nets contain downside; wider whitelist captures
-    # big winners like TREND_RIDE LONG (+84k vs +50k conservative).
-    _ALLOWED_COMBOS = {
-        ("PULLBACK", "LONG"),
-        ("PULLBACK", "SHORT"),
-        ("TREND_RIDE", "LONG"),
-        ("TREND_RIDE", "SHORT"),
-        ("STOCH_CROSS", "LONG"),
-        ("STOCH_CROSS", "SHORT"),
-        ("EMA_MOMENTUM", "LONG"),
-        ("EMA_MOMENTUM", "SHORT"),
-    }
+    # No direction whitelist — all strategies allowed.
+    # Safety nets handle downside: MAX_LOTS=6, HARD_CAP=Rs 4k,
+    # GAP_FADE block, RSI gates, DIR caps.
+    # Only SUPERTREND is disabled at the strategy engine level.
+    _ALLOWED_COMBOS = None  # None = allow everything
 
     def _is_signal_allowed(self, signal) -> bool:
-        """Check if a signal's strategy+direction combo has proven edge."""
+        """Check if a signal's strategy+direction combo is allowed.
+        Returns True for all signals when _ALLOWED_COMBOS is None."""
+        if self._ALLOWED_COMBOS is None:
+            return True
         sig_type = signal.signal_type
         direction = signal.direction
-        # Strip trailing _N suffix (e.g. PULLBACK_2 -> PULLBACK, TREND_RIDE_0 -> TREND_RIDE)
         base = sig_type
         for suffix in ('_0', '_1', '_2', '_3', '_4'):
             if base.endswith(suffix):

@@ -247,24 +247,34 @@ def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
 
 
 def vwap(df: pd.DataFrame) -> pd.Series:
-    """Cumulative VWAP."""
+    """Cumulative VWAP.  Falls back to expanding mean of typical price
+    when volume data is all-zero (common with REST-fallback candles)."""
     typical = (df["high"] + df["low"] + df["close"]) / 3
-    cum_tp_vol = (typical * df["volume"]).cumsum()
-    cum_vol = df["volume"].cumsum()
+    vol = df.get("volume", pd.Series(0, index=df.index))
+    if vol.sum() == 0:
+        return typical.expanding().mean()
+    cum_tp_vol = (typical * vol).cumsum()
+    cum_vol = vol.cumsum()
     return cum_tp_vol / cum_vol.replace(0, np.nan)
 
 
 def vwap_intraday(df: pd.DataFrame) -> pd.Series:
-    """VWAP that resets at the start of each trading day."""
+    """VWAP that resets at the start of each trading day.
+    Falls back to expanding mean of typical price when volume is zero."""
     typical = (df["high"] + df["low"] + df["close"]) / 3
-    tp_vol = typical * df["volume"]
+    vol = df.get("volume", pd.Series(0, index=df.index))
+    has_volume = vol.sum() > 0
     dates = df.index.date if hasattr(df.index, 'date') else pd.Series(df.index).dt.date.values
     result = pd.Series(np.nan, index=df.index)
     for date in pd.unique(dates):
         mask = dates == date
-        cum_tp = tp_vol[mask].cumsum()
-        cum_v = df["volume"][mask].cumsum()
-        result[mask] = cum_tp / cum_v.replace(0, np.nan)
+        tp_day = typical[mask]
+        if has_volume:
+            cum_tp = (tp_day * vol[mask]).cumsum()
+            cum_v = vol[mask].cumsum()
+            result[mask] = cum_tp / cum_v.replace(0, np.nan)
+        else:
+            result[mask] = tp_day.expanding().mean()
     return result
 
 

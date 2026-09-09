@@ -153,23 +153,15 @@ class MultiStrategyEngine:
     # ── Strategies disabled (net losers on real weekly option data) ──
     # Enabled: PULLBACK, SUPERTREND, TREND_RIDE, STOCH_CROSS
     # (validated 6.30% geo daily on 99 days real weekly option premiums)
+    # Only disable strategies that are proven net-negative or redundant.
+    # SUPERTREND: net -14k even capped. GAP_TRADE: regime already blocked.
+    # CPR strategies: need prev-day data we don't reliably have.
     DISABLED_STRATEGIES = {
-        "EMA_MOMENTUM",
-        "VWAP_MOMENTUM",
-        "VWAP_MEAN_REV",
-        "RSI_REVERSION",
-        "ADX_BREAKOUT",
-        "ORB_BREAKOUT",
-        "BB_SQUEEZE",
-        "VWAP_BOUNCE",
-        "RSI_DIVERGENCE",
+        "SUPERTREND",
+        "GAP_TRADE",
         "CPR_RANGE",
         "CPR_BREAKOUT",
-        "GAP_TRADE",
-        "FIRST_HOUR_MOM",
         "NARROW_CPR_BO",
-        "TRIPLE_CONFIRM",
-        "VWAP_2SD_REV",
     }
 
     MAX_STOCH_PER_DAY = 10
