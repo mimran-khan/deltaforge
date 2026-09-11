@@ -139,6 +139,7 @@ class TradingEngine:
         self._last_atr: float = 30.0
         self._day_dir_count: dict[str, int] = {"LONG": 0, "SHORT": 0}
         self._day_dir_pnl: dict[str, float] = {"LONG": 0.0, "SHORT": 0.0}
+        self._hardcap_cooldown: dict[str, int] = {"LONG": 0, "SHORT": 0}
 
         self._event_log = Path(settings.DATA_DIR) / "events.jsonl"
 
@@ -202,6 +203,7 @@ class TradingEngine:
         self._last_price_time = None
         self._day_dir_count = {"LONG": 0, "SHORT": 0}
         self._day_dir_pnl = {"LONG": 0.0, "SHORT": 0.0}
+        self._hardcap_cooldown = {"LONG": 0, "SHORT": 0}
 
         self._load_paper_positions()
 
@@ -393,12 +395,13 @@ class TradingEngine:
         max_per_dir = getattr(settings, 'MAX_TRADES_PER_DIRECTION', 2)
         dir_loss_cap = getattr(settings, 'DIRECTION_LOSS_CAP', 12000)
 
-        # GAP_FADE regimes are consistently toxic (-12k over 51 days).
-        # Block all entries when the regime detector classifies GAP_FADE.
+        # GAP_FADE regimes are toxic in the first hour when the gap-fade
+        # pattern is active.  After 10:30 the gap has played out and real
+        # trends can develop, so we let signals through.
         current_regime = getattr(self.strategy.regime, 'regime', 'UNKNOWN')
-        if current_regime.startswith("GAP_FADE"):
+        if current_regime.startswith("GAP_FADE") and time_str < "10:30":
             if signals:
-                logger.info("GAP_FADE BLOCK: {} signals blocked — {} regime is toxic",
+                logger.info("GAP_FADE BLOCK: {} signals blocked — {} regime (first hour)",
                             len(signals), current_regime)
             return False
 
@@ -412,6 +415,12 @@ class TradingEngine:
                 continue
 
             if signal.confidence < ap.min_confidence:
+                continue
+
+            if self._hardcap_cooldown.get(signal.direction, 0) > 0:
+                logger.info("HARDCAP COOLDOWN: {} {} blocked — {} bars remaining",
+                            signal.signal_type, signal.direction,
+                            self._hardcap_cooldown[signal.direction])
                 continue
 
             if self._day_dir_count.get(signal.direction, 0) >= max_per_dir:
@@ -696,10 +705,11 @@ class TradingEngine:
             unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
             if unrealised_loss >= max_loss:
                 logger.warning(
-                    "INTRA-BAR HARD CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting",
+                    "INTRA-BAR HARD CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting | cooldown 6 bars",
                     pos.signal.signal_type, pos.signal.direction,
                     unrealised_loss, max_loss)
                 self._close_paper_position(pos, cur_prem, "HARD_CAP")
+                self._hardcap_cooldown[pos.signal.direction] = 6
                 closed.append(pos)
 
         for pos in closed:
@@ -756,6 +766,10 @@ class TradingEngine:
         adx_val = self._get_current_adx(adx_idx)
         now_str = (bar_time_str if bar_time_str is not None
                    else datetime.now(IST).strftime("%H:%M"))
+
+        for d in ("LONG", "SHORT"):
+            if self._hardcap_cooldown.get(d, 0) > 0:
+                self._hardcap_cooldown[d] -= 1
 
         for pos in self._paper_positions:
             pos.candles_held += 1

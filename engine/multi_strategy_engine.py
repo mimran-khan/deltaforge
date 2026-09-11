@@ -146,7 +146,7 @@ class MultiStrategyEngine:
     HTF_DEAD_ZONE_LO = 0   # skip when |RSI15 - 50| is in [0, 3)
     HTF_DEAD_ZONE_HI = 3   # trade when RSI > 53 or < 47
 
-    MIN_ADX = 18            # require meaningful trend (ADX<18 = noise)
+    MIN_ADX = 12            # lowered: range-bound markets still tradeable with VWAP/mean-rev
     MAX_ADX = 50            # raised to 50 -- optimizer: captures strong trends without filtering
     SUPERTREND_MIN_ADX = 25 # stricter ADX gate for SUPERTREND strategy
 

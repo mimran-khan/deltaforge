@@ -284,7 +284,12 @@ class CapitalTracker:
             today = datetime.now(IST).date()
             expiry_day = getattr(settings, 'NIFTY_EXPIRY_DAY', 1)
             days_ahead = (expiry_day - today.weekday()) % 7
-            dte = float(max(days_ahead, 0))
+            if days_ahead == 0:
+                dte = 0.0
+            elif days_ahead <= 3:
+                dte = float(days_ahead)
+            else:
+                dte = float(7 - days_ahead)
             for threshold in sorted(dte_caps.keys()):
                 if dte <= threshold:
                     cap = min(cap, dte_caps[threshold])
