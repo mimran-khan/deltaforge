@@ -1341,6 +1341,9 @@ class TradingEngine:
                 return self._finalize_seed(count, source)
             else:
                 logger.warning("Late start: broker API failed (rate-limited?) -- using disk/CSV fallback")
+                csv_result = self._csv_fallback_seed(disk_count)
+                if csv_result >= settings.SCAN_WARMUP_BARS:
+                    return csv_result
 
         if disk_count >= settings.SCAN_WARMUP_BARS:
             candles = self.candle_builder.get_candles()
@@ -1538,6 +1541,15 @@ class TradingEngine:
             logger.info("EOD capital backup written: Rs {:.0f}", self.capital.current_capital)
         except Exception as e:
             logger.warning("EOD capital backup failed: {}", e)
+
+        try:
+            candles = self.candle_builder.get_candles()
+            if not candles.empty and len(candles) >= 20:
+                candle_csv = Path(settings.DATA_DIR) / "candles_live.csv"
+                candles.tail(100).to_csv(candle_csv, index_label="timestamp")
+                logger.info("EOD candle snapshot saved: {} bars", min(len(candles), 100))
+        except Exception as e:
+            logger.warning("EOD candle snapshot failed: {}", e)
 
         state_file = Path(settings.DATA_DIR) / "engine_state.json"
         if state_file.exists():

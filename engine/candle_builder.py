@@ -159,9 +159,13 @@ class CandleBuilder:
                     "Loaded {} historical candles from disk (all completed, prior day)",
                     len(recent),
                 )
-            else:
+            elif len(recent) >= 2:
                 self.seed(recent)
                 logger.info("Loaded {} candles from disk cache (multi-day)", len(recent))
+            else:
+                self.candles = recent.copy()
+                self._current_bucket = None
+                logger.info("Loaded {} candle(s) from disk (minimal)", len(recent))
 
             return len(recent)
         except Exception as e:

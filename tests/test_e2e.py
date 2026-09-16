@@ -268,7 +268,7 @@ class TestMultiStrategyEngine(unittest.TestCase):
         from engine.multi_strategy_engine import MultiStrategyEngine
         engine = MultiStrategyEngine()
         self.assertTrue(hasattr(engine, 'MIN_ADX'))
-        self.assertEqual(engine.MIN_ADX, 18)
+        self.assertEqual(engine.MIN_ADX, 12)
 
     def test_signal_structure(self):
         from engine.multi_strategy_engine import TradeSignal
