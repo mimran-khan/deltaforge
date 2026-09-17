@@ -1324,12 +1324,11 @@ class TradingEngine:
                 if disk_count > 0 and not self.candle_builder.candles.empty:
                     disk_df = self.candle_builder.candles
                     today = datetime.now(IST).date()
+                    # _normalize_tz in seed() handles tz alignment
+                    disk_df = self.candle_builder._normalize_tz(disk_df)
+                    broker_df = self.candle_builder._normalize_tz(broker_df)
                     prior = disk_df[disk_df.index.map(lambda t: t.date() < today)]
                     today_broker = broker_df[broker_df.index.map(lambda t: t.date() >= today)]
-                    if prior.index.tz is None and today_broker.index.tz is not None:
-                        prior.index = prior.index.tz_localize(today_broker.index.tz)
-                    elif prior.index.tz is not None and today_broker.index.tz is None:
-                        today_broker.index = today_broker.index.tz_localize(prior.index.tz)
                     merged = pd.concat([prior, today_broker])
                     merged = merged[~merged.index.duplicated(keep='last')].sort_index()
                     self.candle_builder.seed(merged)

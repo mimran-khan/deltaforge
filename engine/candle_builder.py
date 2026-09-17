@@ -5,11 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from loguru import logger
 
 from config import settings
+
+_IST = ZoneInfo("Asia/Kolkata")
 
 _CANDLE_CSV = Path(settings.DATA_DIR) / "candles_live.csv"
 
@@ -93,6 +96,22 @@ class CandleBuilder:
         df["volume"] = df["volume"].astype(int)
         return df
 
+    @staticmethod
+    def _normalize_tz(df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure index is tz-aware (Asia/Kolkata).
+
+        Prevents 'Cannot compare tz-naive and tz-aware timestamps' crashes
+        when historical CSV data (tz-naive) meets live feed data (tz-aware).
+        """
+        df = df.copy()
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index, utc=False)
+        if df.index.tz is None:
+            df.index = df.index.tz_localize(_IST)
+        elif str(df.index.tz) != "Asia/Kolkata":
+            df.index = df.index.tz_convert(_IST)
+        return df
+
     def seed(self, historical_df: pd.DataFrame):
         """Pre-fill with historical candles so indicators warm up immediately.
 
@@ -102,6 +121,7 @@ class CandleBuilder:
         """
         if historical_df.empty:
             return
+        historical_df = self._normalize_tz(historical_df)
         self.candles = historical_df.iloc[:-1].copy()
         last = historical_df.iloc[-1]
         self._current_bucket = self._bucket_start(historical_df.index[-1])
@@ -145,6 +165,7 @@ class CandleBuilder:
                 df[col] = df[col].astype(float)
             df["volume"] = df["volume"].astype(int)
 
+            df = self._normalize_tz(df)
             recent = df.tail(100)
             if recent.empty:
                 return 0
@@ -163,6 +184,7 @@ class CandleBuilder:
                 self.seed(recent)
                 logger.info("Loaded {} candles from disk cache (multi-day)", len(recent))
             else:
+                recent = self._normalize_tz(recent)
                 self.candles = recent.copy()
                 self._current_bucket = None
                 logger.info("Loaded {} candle(s) from disk (minimal)", len(recent))
