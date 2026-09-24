@@ -105,6 +105,11 @@ class PaperPosition:
     runner_mode: bool = False
     runner_bars: int = 0
     breakeven_applied: bool = False
+    option_symbol: str = ""
+    option_token: str = ""
+    option_exchange: str = "NFO"
+    real_entry_premium: float = 0.0
+    using_real_premiums: bool = False
 
 
 class TradingEngine:
@@ -529,9 +534,42 @@ class TradingEngine:
         else:
             self._live_enter(signal, decision, option_type)
 
+    def _fetch_real_option_premium(self, option_type: str) -> tuple[float, str, str]:
+        """Fetch real ATM option premium from broker.
+
+        Returns (premium, symbol, token) or (0.0, "", "") on failure.
+        """
+        try:
+            strike = self.strike_selector.find_strike(
+                spot_price=self._nifty_spot,
+                underlying="NIFTY",
+                option_type=option_type,
+                offset=getattr(settings, 'STRIKE_OFFSET', 0),
+            )
+            if not strike:
+                logger.debug("Real premium: no strike found for {} @ {:.0f}",
+                             option_type, self._nifty_spot)
+                return 0.0, "", ""
+
+            symbol = strike["symbol"]
+            token = strike["token"]
+            ltp = self.broker.get_ltp("NFO", symbol, token)
+            if ltp and ltp > 0:
+                logger.info("REAL PREMIUM: {} LTP={:.2f} (Nifty={:.0f})",
+                            symbol, ltp, self._nifty_spot)
+                return float(ltp), symbol, token
+            logger.debug("Real premium: LTP unavailable for {}", symbol)
+        except Exception as e:
+            logger.debug("Real premium fetch failed: {}", e)
+        return 0.0, "", ""
+
     def _paper_enter(self, signal: TradeSignal,
                      decision: RiskDecision, option_type: str):
-        """Full paper trade simulation with realistic costs."""
+        """Paper trade using REAL option premiums from the market.
+
+        Fetches the actual ATM option LTP from the broker API for entry
+        pricing. Falls back to the formula model if the broker is unavailable.
+        """
         ap = self.adaptive.profile
         lots = max(1, decision.lots)
         qty = lots * settings.NIFTY_LOT_SIZE
@@ -556,7 +594,18 @@ class TradingEngine:
                 + (prem_state.target_premium - prem_state.entry_premium) * ap.target_multiplier
             )
 
-        entry_premium = prem_state.entry_premium + settings.SLIPPAGE_POINTS
+        real_prem, opt_symbol, opt_token = self._fetch_real_option_premium(option_type)
+        using_real = real_prem > 0
+
+        if using_real:
+            entry_premium = real_prem + settings.SLIPPAGE_POINTS
+            prem_state.entry_premium = real_prem
+            ratio = real_prem / max(prem_state.target_premium - prem_state.entry_premium, 1)
+            prem_state.target_premium = real_prem + (prem_state.target_premium - prem_state.entry_premium)
+        else:
+            entry_premium = prem_state.entry_premium + settings.SLIPPAGE_POINTS
+            logger.info("Using FORMULA premium (broker unavailable): {:.2f}", entry_premium)
+
         vol_ratio = getattr(signal, 'vol_ratio', 1.0)
         eff_sl = STRATEGY_SL_PCT.get(signal.signal_type, SL_PCT) * ap.sl_multiplier * vol_ratio
         sl_premium = entry_premium * (1 - eff_sl / 100)
@@ -572,6 +621,10 @@ class TradingEngine:
             signal=signal,
             prem_state=prem_state,
             peak_premium=entry_premium,
+            option_symbol=opt_symbol,
+            option_token=opt_token,
+            real_entry_premium=real_prem if using_real else 0.0,
+            using_real_premiums=using_real,
         )
         self._paper_positions.append(pos)
 
@@ -580,18 +633,21 @@ class TradingEngine:
             "option_type": option_type,
             "entry_index": self._nifty_spot,
             "entry_premium": entry_premium,
+            "real_premium": real_prem if using_real else None,
+            "option_symbol": opt_symbol if using_real else None,
             "sl": sl_premium,
             "lots": lots,
             "confidence": signal.confidence,
             "signal_type": signal.signal_type,
             "reason": signal.reason,
             "pullback_count": signal.pullback_count,
+            "using_real_premiums": using_real,
         })
 
         send_trade_alert(
             action="PAPER_ENTRY",
             strategy=f"{signal.signal_type} ({signal.pullback_count} conf)",
-            symbol=f"NIFTY {option_type}",
+            symbol=f"NIFTY {option_type}" + (f" [{opt_symbol}]" if using_real else " [MODEL]"),
             price=entry_premium,
             quantity=qty,
             sl=sl_premium,
@@ -664,9 +720,11 @@ class TradingEngine:
             "capital": round(self.capital.current_capital, 2),
         })
 
-        logger.info("EXIT ({}): {} {} | PnL={:.0f} | Held {} bars",
+        prem_tag = "REAL" if pos.using_real_premiums else "MODEL"
+        logger.info("EXIT ({}): {} {} | PnL={:.0f} | Held {} bars | [{}]{}",
                      reason, pos.signal.signal_type, pos.direction,
-                     pos.pnl, pos.candles_held)
+                     pos.pnl, pos.candles_held, prem_tag,
+                     f" {pos.option_symbol}" if pos.option_symbol else "")
 
         send_trade_alert(
             action=f"PAPER_EXIT ({reason})",
@@ -676,6 +734,15 @@ class TradingEngine:
             sl=0, target=0,
         )
         self._save_paper_positions()
+
+    def _get_position_premium(self, pos: PaperPosition) -> float:
+        """Get current premium for a position — real LTP if available, formula fallback."""
+        if pos.using_real_premiums and pos.option_symbol and pos.option_token:
+            ltp = self.broker.get_ltp(pos.option_exchange, pos.option_symbol, pos.option_token)
+            if ltp and ltp > 0:
+                return float(ltp)
+            logger.debug("Real LTP unavailable for {} — using formula fallback", pos.option_symbol)
+        return pos.prem_state.current_premium(self._nifty_spot, pos.candles_held)
 
     def _check_realtime_exits(self):
         """Track peak premium and enforce HARD_CAP between bar closes.
@@ -696,8 +763,7 @@ class TradingEngine:
         closed = []
 
         for pos in self._paper_positions:
-            cur_prem = pos.prem_state.current_premium(
-                self._nifty_spot, pos.candles_held)
+            cur_prem = self._get_position_premium(pos)
 
             if cur_prem > pos.peak_premium:
                 pos.peak_premium = cur_prem
@@ -773,8 +839,7 @@ class TradingEngine:
 
         for pos in self._paper_positions:
             pos.candles_held += 1
-            cur_prem = pos.prem_state.current_premium(
-                self._nifty_spot, pos.candles_held)
+            cur_prem = self._get_position_premium(pos)
 
             if cur_prem > pos.peak_premium:
                 pos.peak_premium = cur_prem
@@ -934,6 +999,11 @@ class TradingEngine:
                     "runner_mode": p.runner_mode,
                     "runner_bars": p.runner_bars,
                     "breakeven_applied": p.breakeven_applied,
+                    "option_symbol": p.option_symbol,
+                    "option_token": p.option_token,
+                    "option_exchange": p.option_exchange,
+                    "real_entry_premium": p.real_entry_premium,
+                    "using_real_premiums": p.using_real_premiums,
                     "date": datetime.now(IST).strftime("%Y-%m-%d"),
                 })
             tmp = PAPER_POSITIONS_FILE.with_suffix('.tmp')
@@ -995,6 +1065,11 @@ class TradingEngine:
                     runner_mode=p_data.get("runner_mode", False),
                     runner_bars=p_data.get("runner_bars", 0),
                     breakeven_applied=p_data.get("breakeven_applied", False),
+                    option_symbol=p_data.get("option_symbol", ""),
+                    option_token=p_data.get("option_token", ""),
+                    option_exchange=p_data.get("option_exchange", "NFO"),
+                    real_entry_premium=p_data.get("real_entry_premium", 0.0),
+                    using_real_premiums=p_data.get("using_real_premiums", False),
                 )
                 self._paper_positions.append(pos)
             if self._paper_positions:
@@ -1057,10 +1132,8 @@ class TradingEngine:
         """Force close all paper positions using shared exit handler."""
         for pos in list(self._paper_positions):
             if self._nifty_spot > 0:
-                cur_prem = pos.prem_state.current_premium(
-                    self._nifty_spot, pos.candles_held)
+                cur_prem = self._get_position_premium(pos)
             else:
-                # No valid spot price — close at entry (flat) to avoid fake P&L
                 logger.warning("Square-off with no spot price — closing {} at entry premium {:.1f}",
                                pos.direction, pos.entry_premium)
                 cur_prem = pos.entry_premium
@@ -1632,15 +1705,17 @@ class TradingEngine:
                     "signal_type": p.signal.signal_type,
                     "entry_time": p.entry_time,
                     "entry_premium": round(p.entry_premium, 2),
-                    "current_premium": round(p.prem_state.current_premium(self._nifty_spot, p.candles_held), 2),
+                    "current_premium": round(self._get_position_premium(p), 2),
                     "sl_premium": round(p.sl_premium, 2),
                     "peak_premium": round(p.peak_premium, 2),
                     "lots": p.lots,
                     "qty": p.qty,
                     "candles_held": p.candles_held,
                     "unrealized_pnl": round(
-                        (p.prem_state.current_premium(self._nifty_spot, p.candles_held) - p.entry_premium) * p.qty, 2
+                        (self._get_position_premium(p) - p.entry_premium) * p.qty, 2
                     ),
+                    "using_real_premiums": p.using_real_premiums,
+                    "option_symbol": p.option_symbol,
                     "confidence": p.signal.confidence,
                     "entry_index": round(p.entry_index, 2),
                 })
