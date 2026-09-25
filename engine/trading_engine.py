@@ -439,16 +439,11 @@ class TradingEngine:
                             self._day_dir_pnl[signal.direction], dir_loss_cap)
                 continue
 
-            rsi_long_max = getattr(settings, 'RSI_LONG_MAX', 72)
-            rsi_short_min = getattr(settings, 'RSI_SHORT_MIN', 28)
-            if signal.direction == "LONG" and signal.htf_rsi > rsi_long_max:
-                logger.info("RSI GATE: {} LONG blocked — HTF RSI {:.0f} > {}",
-                            signal.signal_type, signal.htf_rsi, rsi_long_max)
-                continue
-            if signal.direction == "SHORT" and signal.htf_rsi < rsi_short_min:
-                logger.info("RSI GATE: {} SHORT blocked — HTF RSI {:.0f} < {}",
-                            signal.signal_type, signal.htf_rsi, rsi_short_min)
-                continue
+            # RSI gate DISABLED — caused more harm than good.
+            # Blocked profitable SHORT trades on every strong downtrend day
+            # (Sep 7-9, Sep 25: HTF RSI 12-17 all day = zero trades).
+            # The individual strategies already have RSI conditions built in.
+            # Safety nets (HARD_CAP, DIR_CAP, lot caps) handle downside.
 
             decision = self.risk.evaluate(
                 confluence_score=signal.confidence,
