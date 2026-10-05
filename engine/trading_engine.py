@@ -754,7 +754,8 @@ class TradingEngine:
         if not self._paper_positions or not self._nifty_spot:
             return
 
-        max_loss = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
+        hard_cap_pct = getattr(settings, 'HARD_CAP_PCT', 20)
+        max_loss_rs = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
         closed = []
 
         for pos in self._paper_positions:
@@ -763,12 +764,14 @@ class TradingEngine:
             if cur_prem > pos.peak_premium:
                 pos.peak_premium = cur_prem
 
+            prem_drop_pct = (pos.entry_premium - cur_prem) / pos.entry_premium * 100
             unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
-            if unrealised_loss >= max_loss:
+            if prem_drop_pct >= hard_cap_pct or unrealised_loss >= max_loss_rs:
+                trigger = f"{prem_drop_pct:.0f}%>={hard_cap_pct}%" if prem_drop_pct >= hard_cap_pct else f"Rs {unrealised_loss:.0f}>={max_loss_rs}"
                 logger.warning(
-                    "INTRA-BAR HARD CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting | cooldown 6 bars",
+                    "INTRA-BAR HARD CAP: {} {} | {} | prem {:.1f}→{:.1f} | loss Rs {:.0f} | cooldown 6 bars",
                     pos.signal.signal_type, pos.signal.direction,
-                    unrealised_loss, max_loss)
+                    trigger, pos.entry_premium, cur_prem, unrealised_loss)
                 self._close_paper_position(pos, cur_prem, "HARD_CAP")
                 self._hardcap_cooldown[pos.signal.direction] = 6
                 closed.append(pos)
@@ -856,14 +859,17 @@ class TradingEngine:
             exit_prem_raw = cur_prem
             grace_bars = 1 if pos.prem_state.dte <= 1.5 else 2
 
-            max_loss_per_trade = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
+            hard_cap_pct = getattr(settings, 'HARD_CAP_PCT', 20)
+            max_loss_rs = getattr(settings, 'MAX_LOSS_PER_TRADE', 8000)
+            prem_drop_pct = (pos.entry_premium - cur_prem) / pos.entry_premium * 100
             unrealised_loss = (pos.entry_premium - cur_prem) * pos.qty
-            if unrealised_loss >= max_loss_per_trade:
+            if prem_drop_pct >= hard_cap_pct or unrealised_loss >= max_loss_rs:
                 exit_reason = "HARD_CAP"
+                trigger = f"{prem_drop_pct:.0f}%>={hard_cap_pct}%" if prem_drop_pct >= hard_cap_pct else f"Rs {unrealised_loss:.0f}>={max_loss_rs}"
                 logger.warning(
-                    "HARD LOSS CAP: {} {} | loss Rs {:.0f} >= cap Rs {} | exiting",
+                    "HARD LOSS CAP: {} {} | {} | prem {:.1f}→{:.1f} | loss Rs {:.0f}",
                     pos.signal.signal_type, pos.signal.direction,
-                    unrealised_loss, max_loss_per_trade)
+                    trigger, pos.entry_premium, cur_prem, unrealised_loss)
             elif cur_prem <= pos.sl_premium and pos.candles_held >= grace_bars:
                 exit_reason = "STEP_TRAIL" if pos.sl_premium >= pos.entry_premium else "SL"
                 exit_prem_raw = pos.sl_premium

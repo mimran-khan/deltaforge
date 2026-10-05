@@ -82,7 +82,8 @@ FUTURES_STARTING_CAPITAL = float(os.getenv("FUTURES_STARTING_CAPITAL", "50000"))
 
 CAPITAL_PER_LOT = 12_000        # 1 lot per Rs 12,000
 MAX_LOTS_CAP = 4                # hard cap: never exceed 4 lots (limits worst-case to ~Rs 3.5k)
-MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "4000"))
+MAX_LOSS_PER_TRADE = int(os.getenv("MAX_LOSS_PER_TRADE", "8000"))  # Rs fallback (only used if % calc is lower)
+HARD_CAP_PCT = float(os.getenv("HARD_CAP_PCT", "20"))  # exit if premium drops 20% from entry
 
 DTE_LOT_CAPS = {0: 3, 1: 4, 2: 6}  # gamma protection: expiry day max 3, DTE<=1 max 4, DTE<=2 max 6
 
