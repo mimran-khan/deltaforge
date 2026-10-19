@@ -808,9 +808,7 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
     <div class="topbar">
       <span class="logo">DeltaForge</span>
       <span class="meta">📦 Archived &middot; Jun–Oct 2026</span>
-      <span class="refresh-counter" id="refresh-counter"></span>
     </div>
-    <div class="ticker"><div class="ticker-track">{ticker_html}</div></div>
   </div>
 
   <div style="background:linear-gradient(90deg,#92400e,#b45309);padding:10px 24px;text-align:center;font-size:13px;color:#fef3c7;letter-spacing:0.5px;border-bottom:1px solid #d97706">
@@ -965,49 +963,6 @@ const barData = {json.dumps(daily_bars)};
 const tradePnls = {json.dumps([round(t.get("pnl", 0), 0) for t in trades])};
 const ddData = {json.dumps(dd_data)};
 const wrData = {json.dumps(wr_data_clean)};
-
-// ── Next Refresh Counter ──
-(function() {{
-  const holidays = new Set({json.dumps(_load_holiday_dates())});
-  const EOD_HOUR = 15, EOD_MIN = 35;
-
-  function isTradingDay(d) {{
-    const day = d.getDay();
-    if (day === 0 || day === 6) return false;
-    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    return !holidays.has(ds);
-  }}
-
-  function nextRefresh() {{
-    const now = new Date();
-    const ist = new Date(now.toLocaleString('en-US', {{timeZone:'Asia/Kolkata'}}));
-    let target = new Date(ist);
-    target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
-    if (ist >= target || !isTradingDay(ist)) {{
-      target.setDate(target.getDate() + 1);
-      while (!isTradingDay(target)) target.setDate(target.getDate() + 1);
-      target.setHours(EOD_HOUR, EOD_MIN, 0, 0);
-    }}
-    return target;
-  }}
-
-  function update() {{
-    const el = document.getElementById('refresh-counter');
-    if (!el) return;
-    const now = new Date();
-    const ist = new Date(now.toLocaleString('en-US', {{timeZone:'Asia/Kolkata'}}));
-    const target = nextRefresh();
-    const diff = target - ist;
-    if (diff <= 0) {{ el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Refreshing...</span>'; return; }}
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    const timeStr = h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + s + 's';
-    el.innerHTML = '<span class="rc-dot"></span><span class="rc-label">Next refresh</span><span class="rc-time">' + timeStr + '</span>';
-  }}
-  update();
-  setInterval(update, 1000);
-}})();
 
 // ── TradingView Charts ──
 function initCharts() {{
