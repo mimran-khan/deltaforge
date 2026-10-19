@@ -807,10 +807,14 @@ body{{font-family:var(--sans);background:var(--bg);color:var(--text);overflow-x:
   <div class="header-fixed">
     <div class="topbar">
       <span class="logo">DeltaForge</span>
-      <span class="meta"><span class="live-dot"></span>Paper Trading &middot; {now.strftime("%b %d, %Y")}</span>
+      <span class="meta">📦 Archived &middot; Jun–Oct 2026</span>
       <span class="refresh-counter" id="refresh-counter"></span>
     </div>
     <div class="ticker"><div class="ticker-track">{ticker_html}</div></div>
+  </div>
+
+  <div style="background:linear-gradient(90deg,#92400e,#b45309);padding:10px 24px;text-align:center;font-size:13px;color:#fef3c7;letter-spacing:0.5px;border-bottom:1px solid #d97706">
+    🏁 <strong>This project has been archived.</strong> 228 trades &middot; +222% return (paper) &middot; Jun 2 – Oct 19, 2026. <a href="https://github.com/mimran-khan/deltaforge" style="color:#fde68a;text-decoration:underline">View on GitHub</a>
   </div>
 
   <div class="nav" id="nav">
