@@ -37,6 +37,45 @@
 
 ---
 
+> ## 🏁 Project Sunset — October 2026
+>
+> **DeltaForge has been archived.** After 228 trades across 140 days of development and paper trading (Jun–Oct 2026), the project is being retired.
+>
+> ### Final Numbers
+> | Metric | Value |
+> |--------|-------|
+> | Deployed Capital | ₹45,000 |
+> | Final Capital | ₹145,025 |
+> | Peak Capital | ₹177,670 |
+> | Total Return | +222% |
+> | Total Trades | 228 |
+> | Win Rate | 47% |
+> | Period | Jun 2, 2026 – Oct 19, 2026 |
+>
+> ### What worked
+> - **Signal generation** — PULLBACK, TREND_RIDE, and STOCH_CROSS strategies consistently identified good entries
+> - **Trailing stops** — STEP_TRAIL and STRATEGY_TRAIL captured 2–3× more on winners than losses
+> - **Risk management** — direction caps, lot caps, and HARD_CAP prevented catastrophic single-day blowups
+> - **Real-premium integration** — system evolved to use actual option LTPs from the broker API instead of a formula model
+>
+> ### What didn't
+> - **HARD_CAP exits** destroyed ₹189,450 of profit (63% of gross gains) — the #1 P&L killer across the entire run
+> - **Engine reliability** — silent crashes and `launchd` not restarting cost 15+ trading days with zero activity
+> - **Over-optimization** — constant filter tuning (RSI gates, direction whitelists, ADX thresholds) often blocked more profitable trades than bad ones
+> - **Paper ≠ Real** — the premium model diverged significantly from actual option market behavior; switching to real premiums late in the project revealed the gap
+>
+> ### Lessons learned
+> 1. Ship to live (even 1 lot) early — paper trading validates signals, not P&L
+> 2. Fewer filters, wider stops — let the strategy breathe
+> 3. Reliability > strategy — a system that doesn't run can't make money
+> 4. Real option pricing is non-negotiable from day one
+>
+> The [live dashboard](https://mimran-khan.github.io/deltaforge/) remains available as a record of the full trading history.
+>
+> — *Moving on to the next thing.*
+
+---
+
 ### **Your strategy deserves better than a spreadsheet and a prayer.**
 
 DeltaForge is an autonomous intraday options trading system for Nifty 50 on the NSE. You define the rules — it watches the market, finds entries, manages risk, sizes positions, and gets out. Paper or live, same engine, same signals, no surprises.
